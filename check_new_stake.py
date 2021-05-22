@@ -36,6 +36,4 @@ class VerusStakeChecker:
 
 
 if __name__ == '__main__':
-    verus_process = VerusProcess()
-
-
+    verus_process = VerusProcess(name='init')
