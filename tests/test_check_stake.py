@@ -1,25 +1,39 @@
-import psutil
 import os
 
-from check_new_stake import VerusProcess
+
+def test_process_exist(dummy_process):
+    """
+    GIVEN VerusProcess object
+    WHEN created VerusProcess object with 'name' attribute that represent existed process
+    THEN declared process exist
+    """
+    assert dummy_process.status is True
 
 
-def test_process_exist():
-    # Run dummy process
-    process_dummy = psutil.Popen(['sleep', '10'])
-    process_dummy_name = psutil.Process(process_dummy.pid).name()
-    process_to_test = VerusProcess(name=process_dummy_name)
-    assert process_to_test.status is True
-    assert process_to_test.directory == os.getcwd()
-    # Terminate dummy process
-    process_dummy.terminate()
+def test_process_exist_directory(dummy_process):
+    """
+    GIVEN VerusProcess object
+    WHEN created VerusProcess object with 'name' attribute that represent existed process
+    THEN declared process's base directory is cwd
+    """
+    assert dummy_process.directory == os.getcwd()
 
 
-def test_process_not_exist():
-    # Dummy name
-    process_dummy_name = 'test_process_qwerty123'
-    process_to_test = VerusProcess(name=process_dummy_name)
-    assert process_to_test.status is False
-    assert process_to_test.directory == ''
+def test_process_not_exist(nonexistent_process):
+    """
+    GIVEN VerusProcess object
+    WHEN created VerusProcess object with 'name' attribute that represent non-existed process
+    THEN declared process not exist
+    """
+    assert nonexistent_process.status is False
+
+
+def test_process_not_exist_directory(nonexistent_process):
+    """
+    GIVEN VerusProcess object
+    WHEN created VerusProcess object with 'name' attribute that represent non-existed process
+    THEN declared process's base directory is ''
+    """
+    assert nonexistent_process.directory == ''
 
 
