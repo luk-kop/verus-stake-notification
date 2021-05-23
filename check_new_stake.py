@@ -48,17 +48,19 @@ class VerusStakeChecker:
     """
     The class responsible for checking to confirm that a new stake has appeared in Verus wallet.
     """
-    def __init__(self, script_name: str = 'verus',  txcount_history_file: str = 'txcount_history.txt') -> None:
+    def __init__(self, txcount_history_file: str = 'txcount_history.txt') -> None:
         self.verus_process = VerusProcess()
-        self.script_name = script_name
+        self.verus_script_name = 'verus'
         self.txcount_history_file = txcount_history_file
-        # Create txcount_history.txt if not exist
+        self.wallet_info = self._get_wallet_info()
+        # Create txcount history file if not exist
         if not Path(self.txcount_history_file).is_file():
-            open(self.txcount_history_file, 'w').close()
+            with open(self.txcount_history_file, 'w') as file:
+                file.write('0')
 
     def run(self) -> None:
         if self.verus_process.status:
-            if self._is_txcount_equal():
+            if not self._is_txcount_different():
                 # print('Equal')
                 return
             self._store_txcount()
@@ -73,8 +75,7 @@ class VerusStakeChecker:
         """
         Return current 'txcount' value.
         """
-        wallet_info_dict = self._get_wallet_info()
-        return str(wallet_info_dict['txcount'])
+        return str(self.wallet_info.get('txcount', 0))
 
     @property
     def txcount_last(self) -> str:
@@ -85,14 +86,23 @@ class VerusStakeChecker:
             content = file.read()
         return content
 
+    @property
+    def verus_script_path(self) -> str:
+        """
+        Return verus script absolute path.
+        """
+        return Path(self.verus_process.directory).joinpath(self.verus_script_name)
+
     def _get_wallet_info(self) -> dict:
         """
         Get detailed walletinfo from Verus process api.
         """
-        verus_script_path = Path(self.verus_process.directory).joinpath(self.script_name)
-        options = [verus_script_path, 'getwalletinfo']
-        response = subprocess.run(args=options, capture_output=True, text=True)
-        return json.loads(response.stdout)
+        if self.verus_process.status:
+            options = [self.verus_script_path, 'getwalletinfo']
+            response = subprocess.run(args=options, capture_output=True, text=True)
+            return json.loads(response.stdout)
+        else:
+            return {}
 
     def _store_txcount(self) -> None:
         """
@@ -105,14 +115,13 @@ class VerusStakeChecker:
         """
         Return current 'immature_balance' value.
         """
-        wallet_info_dict = self._get_wallet_info()
-        return int(wallet_info_dict['immature_balance'])
+        return int(self.wallet_info.get('immature_balance', 0))
 
-    def _is_txcount_equal(self) -> bool:
+    def _is_txcount_different(self) -> bool:
         """
         Check whether 'txcount' changed.
         """
-        return self.txcount_current == self.txcount_last
+        return self.txcount_current != self.txcount_last
 
     def _is_immature_balance(self) -> bool:
         """

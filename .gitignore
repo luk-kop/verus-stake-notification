@@ -6,4 +6,4 @@ __pycache__/
 venv/
 
 notes*
-txcount_history*
+txcount*
