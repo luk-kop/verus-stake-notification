@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+import json
+from typing import Union, List
+
 import boto3
-from typing import Union
+from botocore.exceptions import ClientError
 
 
 class SnsTopic:
@@ -32,7 +35,7 @@ class SnsTopic:
                 Tags=[
                     {
                         'Key': 'Project',
-                        'Value': 'Verus-notification'
+                        'Value': 'verus-notification'
                     }
                 ]
             )
@@ -115,5 +118,152 @@ class SnsTopic:
         print(f'Topic {self.name} has been deleted')
 
 
+class IamRole:
+    """
+    Class represents IAM Role resource.
+    IAM Role that allow Lambda function to publish messages to a SNS Topic.
+    """
+    def __init__(self, name: str = 'verus-lambda-to-sns'):
+        self.name = name
+        self.iam_client = boto3.client('iam')
+        self.arn = None
+        self.role_id = None
+        self.create_role()
+
+    def create_role(self):
+        """
+        Creates new IAM Role.
+        If IAM Role already exists - assign existed IAM Role to 'arn' and 'role_id' attributes.
+        """
+        try:
+            iam_role = self.iam_client.create_role(
+                RoleName=self.name,
+                AssumeRolePolicyDocument=json.dumps(self.trust_relationship_policy),
+                Path='/service-role/',
+                Description='IAM Role for verus notification',
+                Tags=[
+                    {
+                        'Key': 'Project',
+                        'Value': 'verus-notification'
+                    },
+                ]
+            )
+            print(iam_role)
+            # Attach AWSLambdaBasicExecutionRole managed policy
+            self.iam_client.attach_role_policy(
+                RoleName=self.name,
+                PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+            )
+        except ClientError as error:
+            if error.response['Error']['Code'] == 'EntityAlreadyExists':
+                print('Role already exists')
+                iam_role = self.iam_client.get_role(RoleName=self.name)
+            else:
+                print('Unexpected error occurred. Role could not be created', error)
+                return
+        self.arn = iam_role['Role']['Arn']
+        self.role_id = iam_role['Role']['RoleId']
+
+    @property
+    def trust_relationship_policy(self):
+        """
+        The trust relationship policy document that grants an entity permission to assume the IAM Role.
+        Only Lambda resource can assume this IAM Role.
+        """
+        policy = {
+            'Version': '2012-10-17',
+            'Statement': [
+                {
+                    'Effect': 'Allow',
+                    'Principal': {
+                        'Service': 'lambda.amazonaws.com'
+                    },
+                    'Action': 'sts:AssumeRole'
+                }
+            ]
+        }
+        return policy
+
+    def list_attached_polices(self) -> List[dict]:
+        """
+        Lists all managed policies that are attached to the IAM Role.
+        """
+        polices = self.iam_client.list_attached_role_policies(RoleName=self.name)
+        return polices.get('AttachedPolicies')
+
+    def attach_policy(self, policy_arn):
+        """
+        Add custom policy to IAM Role.
+        """
+        self.iam_client.attach_role_policy(
+            RoleName=self.name,
+            PolicyArn=policy_arn
+        )
+
+    def detach_policy(self, policy_arn: str) -> None:
+        """
+        Removes the specified managed policy from the IAM Role.
+        """
+        self.iam_client.detach_role_policy(
+            RoleName=self.name,
+            PolicyArn=policy_arn
+        )
+
+    def delete_role(self) -> None:
+        """
+        Deletes the IAM Role.
+        """
+        # Detach all managed policies
+        for policy in self.list_attached_polices():
+            self.detach_policy(policy['PolicyArn'])
+        # Delete IAM Role
+        self.iam_client.delete_role(RoleName=self.name)
+        print(f'IAM Role {self.name} has been deleted')
+
+
+class IamPolicy:
+    """
+    Class represents IAM policy.
+    """
+    def __init__(self, name):
+        self.name = name
+        self.arn = None
+        self.policy_id = None
+        self.iam_client = boto3.client('iam')
+        self.statement = []
+
+    def add_policy(self, effect: str, action, resource):
+        policy = {
+            'Effect': effect,
+            'Action': action,
+            'Resource': resource
+        }
+        self.statement.append(policy)
+
+    def create_policy(self):
+        policy = {
+            'Version': '2012-10-17',
+            'Statement': self.statement
+        }
+        iam_policy = self.iam_client.create_policy(
+            PolicyName=self.name,
+            PolicyDocument=json.dumps(policy),
+            Tags=[
+                {
+                    'Key': 'Project',
+                    'Value': 'verus-notification'
+                },
+            ]
+        )
+        self.arn = iam_policy['Policy']['Arn']
+        self.policy_id = iam_policy['Policy']['PolicyId']
+
+
 if __name__ == '__main__':
     topic_test = SnsTopic(name='test123')
+    iam_role = IamRole()
+    sns_publish = IamPolicy('verus-sns-publish')
+    sns_publish.add_policy(effect='Allow', action='sns:Publish', resource=topic_test.arn)
+    sns_publish.create_policy()
+    iam_role.attach_policy(sns_publish.arn)
+    # iam_role.delete_role()
