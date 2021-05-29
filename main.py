@@ -40,7 +40,7 @@ class SnsTopic:
                 ]
             )
             self.arn = topic['TopicArn']
-            print(f'Topic {self.name} created')
+            print(f'The topic {self.name} created')
 
     def check_topic_exist(self) -> bool:
         """
@@ -51,18 +51,18 @@ class SnsTopic:
         for topic in topics:
             topic_arn = topic.get('TopicArn')
             if topic_arn and topic_arn.split(':')[-1] == self.name:
-                print(f'Topic {self.name} exist. Returning an existing topic')
+                print(f'Topic {self.name} exist. Using it.')
                 self.arn = topic_arn
                 return True
         return False
 
     def subscribe_endpoint(self, endpoint: str, protocol: str = 'email') -> None:
         """
-        Add subscription to topic
+        Adds subscription to topic
         """
         sub_arn = self.check_subscription_exist(endpoint)
         if sub_arn:
-            print(f'Subscription {endpoint} already exist')
+            print(f'The subscription {endpoint} already exist')
         else:
             self.sns_client.subscribe(
                 TopicArn=self.arn,
@@ -70,35 +70,35 @@ class SnsTopic:
                 Endpoint=endpoint,
                 ReturnSubscriptionArn=False
             )
-            print(f'Subscription {endpoint} added to {self.name} topic')
+            print(f'The subscription {endpoint} added to {self.name} topic')
 
     def unsubscribe_endpoint(self, endpoint: str) -> None:
         """
-        Delete specific subscription.
+        Deletes specific subscription.
         """
         sub_arn = self.check_subscription_exist(endpoint)
         if sub_arn:
             if sub_arn == 'PendingConfirmation':
-                print(f'Subscription "{endpoint}" can\'t be deleted (\'Pending confirmation\' status)')
+                print(f'The subscription "{endpoint}" can\'t be deleted (\'Pending confirmation\' status)')
                 return
             else:
                 self.sns_client.unsubscribe(SubscriptionArn=sub_arn)
-                print(f'Subscription {endpoint} has been deleted')
+                print(f'The subscription {endpoint} has been deleted')
                 return
         print(f'The "{endpoint}" is not valid subscription to {self.name} topic')
 
     def unsubscribe_all_endpoints(self) -> None:
         """
-        Delete all subscriptions.
+        Deletes all subscriptions.
         """
         for sub in self.subscriptions:
             sub_arn = sub['SubscriptionArn']
             sub_endpoint = sub['Endpoint']
             if sub_arn == 'PendingConfirmation':
-                print(f'Subscription "{sub_endpoint}" can\'t be deleted (\'Pending confirmation\' status)')
+                print(f'The subscription "{sub_endpoint}" can\'t be deleted (\'Pending confirmation\' status)')
             else:
                 self.sns_client.unsubscribe(SubscriptionArn=sub_arn)
-                print(f'Subscription "{sub_endpoint}" has been deleted')
+                print(f'The subscription "{sub_endpoint}" has been deleted')
 
     def check_subscription_exist(self, endpoint: str) -> Union[None, str]:
         """
@@ -111,26 +111,27 @@ class SnsTopic:
 
     def delete_topic(self) -> None:
         """
-        Delete topic.
+        Deletes topic.
         """
         self.sns_client.delete_topic(TopicArn=self.arn)
         self.arn = None
-        print(f'Topic {self.name} has been deleted')
+        print(f'The topic {self.name} has been deleted')
 
 
-class IamRole:
+class IamRoleLambda:
     """
-    Class represents IAM Role resource.
-    IAM Role that allow Lambda function to publish messages to a SNS Topic.
+    Class represents IAM role resource. If a role with the specified name already exists, it is used.
+    IAM role that allow Lambda function to publish messages to a SNS Topic.
     """
-    def __init__(self, name: str = 'verus-lambda-to-sns'):
+    def __init__(self, name: str, topic_arn: str):
         self.name = name
+        self.topic_arn = topic_arn
         self.iam_client = boto3.client('iam')
         self.arn = None
         self.role_id = None
         self.create_role()
 
-    def create_role(self):
+    def create_role(self) -> None:
         """
         Creates new IAM Role.
         If IAM Role already exists - assign existed IAM Role to 'arn' and 'role_id' attributes.
@@ -140,7 +141,7 @@ class IamRole:
                 RoleName=self.name,
                 AssumeRolePolicyDocument=json.dumps(self.trust_relationship_policy),
                 Path='/service-role/',
-                Description='IAM Role for verus notification',
+                Description='IAM role for verus notification',
                 Tags=[
                     {
                         'Key': 'Project',
@@ -148,15 +149,22 @@ class IamRole:
                     },
                 ]
             )
-            print(iam_role)
             # Attach AWSLambdaBasicExecutionRole managed policy
             self.iam_client.attach_role_policy(
                 RoleName=self.name,
                 PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
             )
+            # Attach inline policy - allow Lambda publish to specified SNS topic
+            self.iam_client.put_role_policy(
+                RoleName=self.name,
+                PolicyName='verus-lambda-sns-publish',
+                PolicyDocument=f'{{"Version":"2012-10-17","Statement":'
+                               f'{{"Effect":"Allow","Action":"sns:Publish","Resource":"{self.topic_arn}"}}}}'
+            )
+            print(f'The IAM role {self.name} created')
         except ClientError as error:
             if error.response['Error']['Code'] == 'EntityAlreadyExists':
-                print('Role already exists')
+                print(f'The IMA role {self.name} already exists')
                 iam_role = self.iam_client.get_role(RoleName=self.name)
             else:
                 print('Unexpected error occurred. Role could not be created', error)
@@ -165,7 +173,7 @@ class IamRole:
         self.role_id = iam_role['Role']['RoleId']
 
     @property
-    def trust_relationship_policy(self):
+    def trust_relationship_policy(self) -> dict:
         """
         The trust relationship policy document that grants an entity permission to assume the IAM Role.
         Only Lambda resource can assume this IAM Role.
@@ -186,14 +194,14 @@ class IamRole:
 
     def list_attached_polices(self) -> List[dict]:
         """
-        Lists all managed policies that are attached to the IAM Role.
+        Lists all managed policies that are attached to the IAM role.
         """
         polices = self.iam_client.list_attached_role_policies(RoleName=self.name)
         return polices.get('AttachedPolicies')
 
     def attach_policy(self, policy_arn):
         """
-        Add custom policy to IAM Role.
+        Add the specified managed policy to IAM role.
         """
         self.iam_client.attach_role_policy(
             RoleName=self.name,
@@ -202,7 +210,7 @@ class IamRole:
 
     def detach_policy(self, policy_arn: str) -> None:
         """
-        Removes the specified managed policy from the IAM Role.
+        Removes the specified managed policy from the IAM role.
         """
         self.iam_client.detach_role_policy(
             RoleName=self.name,
@@ -211,59 +219,95 @@ class IamRole:
 
     def delete_role(self) -> None:
         """
-        Deletes the IAM Role.
+        Deletes the IAM role.
         """
         # Detach all managed policies
         for policy in self.list_attached_polices():
             self.detach_policy(policy['PolicyArn'])
         # Delete IAM Role
         self.iam_client.delete_role(RoleName=self.name)
-        print(f'IAM Role {self.name} has been deleted')
+        print(f'The IAM Role {self.name} has been deleted')
 
 
-class IamPolicy:
+class CustomerIamPolicy:
     """
-    Class represents IAM policy.
+    Class represents customer managed IAM policy.
+    Policy is NOT deployed when a new CustomerIamPolicy instance is created.
+    To deploy policy to AWS use 'create_policy' method on CustomerIamPolicy object.
     """
     def __init__(self, name):
         self.name = name
         self.arn = None
-        self.policy_id = None
         self.iam_client = boto3.client('iam')
         self.statement = []
 
-    def add_policy(self, effect: str, action, resource):
+    def add_policy_to_statement(self, effect: str, actions: list, resource: str) -> None:
+        """
+        Adds policies details to 'Statement' part.
+        """
         policy = {
             'Effect': effect,
-            'Action': action,
+            'Action': actions[0] if len(actions) == 1 else actions,
             'Resource': resource
         }
         self.statement.append(policy)
 
-    def create_policy(self):
-        policy = {
-            'Version': '2012-10-17',
-            'Statement': self.statement
-        }
-        iam_policy = self.iam_client.create_policy(
-            PolicyName=self.name,
-            PolicyDocument=json.dumps(policy),
-            Tags=[
-                {
-                    'Key': 'Project',
-                    'Value': 'verus-notification'
-                },
-            ]
-        )
-        self.arn = iam_policy['Policy']['Arn']
-        self.policy_id = iam_policy['Policy']['PolicyId']
+    def check_policy_exist(self) -> bool:
+        """
+        Returns policy ARN if policy already exist in 'Local' scope.
+        """
+        local_policies = self.iam_client.list_policies(Scope='Local')['Policies']
+        for policy in local_policies:
+            if policy['PolicyName'] == self.name:
+                print(f'The policy {self.name} already exists. Using it.')
+                self.arn = policy['Arn']
+                return True
+        return False
+
+    def create_policy(self) -> None:
+        """
+        Creates customer managed policy - if not exists.
+        """
+        policy_arn = self.check_policy_exist()
+        if not policy_arn:
+            policy = {
+                'Version': '2012-10-17',
+                'Statement': self.statement
+            }
+            iam_policy = self.iam_client.create_policy(
+                PolicyName=self.name,
+                PolicyDocument=json.dumps(policy),
+                Tags=[
+                    {
+                        'Key': 'Project',
+                        'Value': 'verus-notification'
+                    },
+                ]
+            )
+            self.arn = iam_policy['Policy']['Arn']
+            print(f'Policy {self.name} created')
+
+    def delete_policy(self) -> None:
+        """
+        Deletes customer managed policy.
+        """
+        if self.arn:
+            self.iam_client.delete_policy(PolicyArn=self.arn)
+            print(f'The policy {self.name} has been deleted')
+
+
+def create_resources():
+    # Deploy SNS topic
+    topic_test = SnsTopic(name='test123')
+    # Deploy IAM Role for Lambda
+    iam_role = IamRoleLambda(name='verus-lambda-to-sns', topic_arn=topic_test.arn)
+    # iam_role.delete_role()
+
+
+def delete_resources():
+    pass
 
 
 if __name__ == '__main__':
-    topic_test = SnsTopic(name='test123')
-    iam_role = IamRole()
-    sns_publish = IamPolicy('verus-sns-publish')
-    sns_publish.add_policy(effect='Allow', action='sns:Publish', resource=topic_test.arn)
-    sns_publish.create_policy()
-    iam_role.attach_policy(sns_publish.arn)
-    # iam_role.delete_role()
+    create_resources()
+
