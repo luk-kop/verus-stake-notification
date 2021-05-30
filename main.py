@@ -159,7 +159,7 @@ class IamRoleLambda:
             # Attach inline policy - allow Lambda publish to specified SNS topic
             self._iam_client.put_role_policy(
                 RoleName=self.name,
-                PolicyName='verus-lambda-sns-publish',
+                PolicyName='verus-lambda-sns-publish-inline',
                 PolicyDocument=f'{{"Version":"2012-10-17","Statement":'
                                f'{{"Effect":"Allow","Action":"sns:Publish","Resource":"{self.topic_arn}"}}}}'
             )
@@ -226,6 +226,11 @@ class IamRoleLambda:
         # Detach all managed policies
         for policy in self.list_attached_polices():
             self.detach_policy(policy['PolicyArn'])
+        # Delete inline policy
+        self._iam_client.delete_role_policy(
+            RoleName=self.name,
+            PolicyName='verus-lambda-sns-publish-inline'
+        )
         # Delete IAM Role
         self._iam_client.delete_role(RoleName=self.name)
         print(f'The IAM Role {self.name} has been deleted')
@@ -373,8 +378,8 @@ def create_resources():
                              topic_arn=topic_test.arn)
     # Deploy Lambda function
     lambda_test = LambdaFunction(name='verus-lambda-func',
-                         role_arn=iam_role.arn,
-                         topic_arn=topic_test.arn)
+                                 role_arn=iam_role.arn,
+                                 topic_arn=topic_test.arn)
     # lambda_test.delete_function()
     # iam_role.delete_role()
 
