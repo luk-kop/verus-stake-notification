@@ -3,6 +3,7 @@ import json
 from typing import Union, List
 import zipfile
 import io
+from time import sleep
 
 import boto3
 from botocore.exceptions import ClientError
@@ -329,24 +330,37 @@ class LambdaFunction:
             print(f'The Lambda function {self.name} already exists. Using it.')
             self.arn = lambda_func['Configuration']['FunctionArn']
         except self._lambda_client.exceptions.ResourceNotFoundException:
-            lambda_func = self._lambda_client.create_function(
-                FunctionName=self.name,
-                Description='Publish a msg to SNS topic when new stake appears in Verus wallet.',
-                Runtime='python3.8',
-                Role=self.role_arn,
-                Handler='lambda_function.lambda_handler',
-                Code={'ZipFile': self._deployment_package},
-                Publish=True,
-                Tags=
-                {
-                    'Project': 'verus-notification'
-                },
-                Environment={
-                    'Variables': {
-                        'TOPIC_ARN': self.topic_arn
-                    }
-                }
-            )
+            # Lambda with specified name does not exist - create new one
+            retry_attempt = 0
+            sleepy_time = 2
+            # Retrying to create Lambda function after sleepy time. This is necessary when AWS is not yet ready to
+            # perform an action because IAM role resource has not been fully deployed.
+            while True:
+                retry_attempt += 1
+                try:
+                    lambda_func = self._lambda_client.create_function(
+                        FunctionName=self.name,
+                        Description='Publish a msg to SNS topic when new stake appears in Verus wallet.',
+                        Runtime='python3.8',
+                        Role=self.role_arn,
+                        Handler='lambda_function.lambda_handler',
+                        Code={'ZipFile': self._deployment_package},
+                        Publish=True,
+                        Tags=
+                        {
+                            'Project': 'verus-notification'
+                        },
+                        Environment={
+                            'Variables': {
+                                'TOPIC_ARN': self.topic_arn
+                            }
+                        }
+                    )
+                    break
+                except self._lambda_client.exceptions.InvalidParameterValueException:
+                    if retry_attempt == 1:
+                        print('Creating Lambda function...')
+                    sleep(sleepy_time)
             self.arn = lambda_func['FunctionArn']
             print(f'Lambda function {self.name} created')
 
@@ -380,8 +394,8 @@ def create_resources():
     lambda_test = LambdaFunction(name='verus-lambda-func',
                                  role_arn=iam_role.arn,
                                  topic_arn=topic_test.arn)
-    # lambda_test.delete_function()
-    # iam_role.delete_role()
+    lambda_test.delete_function()
+    iam_role.delete_role()
 
 
 def delete_resources():
