@@ -346,8 +346,7 @@ class LambdaFunction:
                         Handler='lambda_function.lambda_handler',
                         Code={'ZipFile': self._deployment_package},
                         Publish=True,
-                        Tags=
-                        {
+                        Tags={
                             'Project': 'verus-notification'
                         },
                         Environment={
@@ -383,6 +382,18 @@ class LambdaFunction:
         self._lambda_client.delete_function(FunctionName=self.name)
         print(f'The Lambda function {self.name} has been deleted')
 
+    def add_permission(self, source_arn: str, statement_id: str = 'apigateway-get', principal: str = 'apigateway'):
+        """
+        Grants AWS service or another account permission to use function.
+        """
+        self._lambda_client.add_permission(
+            FunctionName=self.name,
+            StatementId=statement_id,
+            Action='lambda:InvokeFunction',
+            Principal=f'{principal}.amazonaws.com',
+            SourceArn=source_arn,
+        )
+
 
 def create_resources():
     # Deploy SNS topic
@@ -394,8 +405,8 @@ def create_resources():
     lambda_test = LambdaFunction(name='verus-lambda-func',
                                  role_arn=iam_role.arn,
                                  topic_arn=topic_test.arn)
-    lambda_test.delete_function()
-    iam_role.delete_role()
+    # lambda_test.delete_function()
+    # iam_role.delete_role()
 
 
 def delete_resources():
