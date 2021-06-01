@@ -4,9 +4,11 @@ from typing import Union, List
 import zipfile
 import io
 from time import sleep
+import os
 
 import boto3
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv, set_key
 
 
 class SnsTopic:
@@ -61,7 +63,9 @@ class SnsTopic:
 
     def subscribe_endpoint(self, endpoint: str, protocol: str = 'email') -> None:
         """
-        Adds subscription to topic
+        Adds a subscription to topic.
+        The endpoint must be confirmed before their subscriptions are active.
+        When a subscription is not confirmed, its ARN is set to 'PendingConfirmation'.
         """
         sub_arn = self.check_subscription_exist(endpoint)
         if sub_arn:
@@ -74,6 +78,7 @@ class SnsTopic:
                 ReturnSubscriptionArn=False
             )
             print(f'The subscription {endpoint} added to {self.name} topic')
+            print('NOTE: Check your email. Please confirm email endpoint subscription before first usage!!!')
 
     def unsubscribe_endpoint(self, endpoint: str) -> None:
         """
@@ -116,6 +121,7 @@ class SnsTopic:
         """
         Deletes topic.
         """
+        self.unsubscribe_all_endpoints()
         self._sns_client.delete_topic(TopicArn=self.arn)
         self.arn = None
         print(f'The topic {self.name} has been deleted')
@@ -414,7 +420,7 @@ class ApiGateway:
         self._account_id = boto3.client('sts').get_caller_identity()['Account']
         self.create_api()
 
-    def create_api(self):
+    def create_api(self) -> None:
         """
         Creates API Gateway resource. Method is called whenever a new instance of ApiGateway is created.
         Method can also be used to recreate API Gateway resource after deleting it with 'delete_api' method.
@@ -508,7 +514,7 @@ class ApiGateway:
                 return True
         return False
 
-    def get_root_resource_id(self):
+    def get_root_resource_id(self) -> str:
         """
         Returns parent id (root resource - path '/').
         """
@@ -527,31 +533,47 @@ class ApiGateway:
         print(f'The API Gateway {self.name} has been deleted')
 
 
-def create_resources():
-    # Deploy SNS topic
-    topic_test = SnsTopic(name='test123')
-    # Deploy IAM Role for Lambda
-    iam_role = IamRoleLambda(name='verus-lambda-to-sns',
-                             topic_arn=topic_test.arn)
-    # Deploy Lambda function
-    lambda_test = LambdaFunction(name='verus-lambda-func',
-                                 role_arn=iam_role.arn,
-                                 topic_arn=topic_test.arn)
-    # Deploy API Gateway
-    api = ApiGateway(name='verus-api-gateway', lambda_arn=lambda_test.arn)
-    # Grants API Gateway permission to use Lambda function
-    lambda_test.add_permission(source_arn=api.source_arn)
-    print(f'API URL: {api.url}')
-    # lambda_test.delete_function()
-    # iam_role.delete_role()
-    # api.delete_api()
+class VerusStakeNotification:
+    """
+    Class represents all AWS resources necessary to run Verus notification project.
+    """
+    def __init__(self, email: str):
+        # Deploy SNS topic
+        self.topic = SnsTopic(name='verus-topic')
+        self.topic.subscribe_endpoint(endpoint=email)
+        # Deploy IAM Role for Lambda
+        self.iam_role = IamRoleLambda(name='verus-lambda-to-sns',
+                                      topic_arn=self.topic.arn)
+        # Deploy Lambda function
+        self.lambda_function = LambdaFunction(name='verus-lambda-func',
+                                              role_arn=self.iam_role.arn,
+                                              topic_arn=self.topic.arn)
+        # Deploy API Gateway
+        self.api = ApiGateway(name='verus-api-gateway', lambda_arn=self.lambda_function.arn)
+        # Grants API Gateway permission to use Lambda function
+        self.lambda_function.add_permission(source_arn=self.api.source_arn)
+        self.url = self.api.url
 
-
-def delete_resources():
-    pass
+    def delete(self):
+        """
+        Destroy all AWS resources.
+        """
+        self.topic.delete_topic()
+        self.lambda_function.delete_function()
+        self.api.delete_api()
+        self.iam_role.delete_role()
 
 
 if __name__ == '__main__':
-    create_resources()
+    # Get environment variables from .env file
+    load_dotenv()
+
+    EMAIL_TO_NOTIFY = os.getenv('EMAIL_TO_NOTIFY')
+    test = VerusStakeNotification(email=EMAIL_TO_NOTIFY)
+
+    # Write API URL to .env file.
+    set_key(dotenv_path='.env', key_to_set='NOTIFICATION_API_URL', value_to_set=test.url)
+
+    # test.delete()
 
 
