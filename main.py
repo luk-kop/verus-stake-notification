@@ -386,13 +386,145 @@ class LambdaFunction:
         """
         Grants AWS service or another account permission to use function.
         """
-        self._lambda_client.add_permission(
-            FunctionName=self.name,
-            StatementId=statement_id,
-            Action='lambda:InvokeFunction',
-            Principal=f'{principal}.amazonaws.com',
-            SourceArn=source_arn,
-        )
+        try:
+            self._lambda_client.add_permission(
+                FunctionName=self.name,
+                StatementId=statement_id,
+                Action='lambda:InvokeFunction',
+                Principal=f'{principal}.amazonaws.com',
+                SourceArn=source_arn,
+            )
+        except self._lambda_client.exceptions.ResourceConflictException:
+            pass
+
+
+class ApiGateway:
+    """
+    Class represents API Gateway resource. If a API Gateway with the specified name already exists, it is used.
+    The API Gateway is publicly accessible and invokes Lambda function.
+    """
+    def __init__(self, name: str, lambda_arn: str):
+        self.name = name
+        self.lambda_arn = lambda_arn
+        self.id = None
+        self.source_arn = None
+        self.url = None
+        self.api_endpoint = 'stake'
+        self._api_client = boto3.client('apigateway')
+        self._account_id = boto3.client('sts').get_caller_identity()['Account']
+        self.create_api()
+
+    def create_api(self):
+        """
+        Creates API Gateway resource. Method is called whenever a new instance of ApiGateway is created.
+        Method can also be used to recreate API Gateway resource after deleting it with 'delete_api' method.
+        """
+        if not self.check_api_exist():
+            api = self._api_client.create_rest_api(
+                name=self.name,
+                description='Invoke Lambda function to publish a msg to SNS topic when new stake appears in Verus wallet.',
+                apiKeySource='HEADER',
+                endpointConfiguration={
+                    'types': ['REGIONAL'],
+                },
+                # policy='string',
+                tags={
+                    'Project': 'verus-notification'
+                },
+            )
+            self.id = api['id']
+            # Create resource 'stake'
+            # Get parent id - root resource (path '/')
+            root_id = self.get_root_resource_id()
+            resource = self._api_client.create_resource(
+                restApiId=self.id,
+                parentId=root_id,
+                pathPart=self.api_endpoint
+            )
+            resource_id = resource['id']
+            # Put method to resource
+            self._api_client.put_method(
+                restApiId=self.id,
+                resourceId=resource_id,
+                httpMethod='GET',
+                authorizationType='NONE'
+            )
+            # Put method response
+            self._api_client.put_method_response(
+                restApiId=self.id,
+                resourceId=resource_id,
+                httpMethod='GET',
+                statusCode='200',
+            )
+            # Put method integration
+            lambda_uri = f'arn:aws:apigateway:{self._api_client.meta.region_name}:' \
+                         f'lambda:path/2015-03-31/functions/{self.lambda_arn}/invocations'
+            # NOTE: For Lambda integrations, you must use the HTTP method of POST for the integration request
+            # (integrationHttpMethod) or this will not work
+            self._api_client.put_integration(
+                restApiId=self.id,
+                resourceId=resource_id,
+                httpMethod='GET',
+                type='AWS',
+                integrationHttpMethod='POST',
+                uri=lambda_uri,
+                connectionType='INTERNET',
+            )
+            # Put method integration response
+            self._api_client.put_integration_response(
+                restApiId=self.id,
+                resourceId=resource_id,
+                httpMethod='GET',
+                statusCode='200',
+                selectionPattern='',
+                contentHandling='CONVERT_TO_TEXT'
+            )
+            self.source_arn = f'arn:aws:execute-api:{self._api_client.meta.region_name}:' \
+                              f'{self._account_id}:{self.id}/*/GET/{self.api_endpoint}'
+            # Create deployment
+            self._api_client.create_deployment(
+                restApiId=self.id,
+                stageName='vrsc'
+            )
+            # Create API URL
+            self.url = f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.amazonaws.com' \
+                       f'/vrsc/{self.api_endpoint}'
+            print(f'API Gateway {self.name} created')
+
+    def check_api_exist(self) -> bool:
+        """
+        Checks whether a API with the given name already exists.
+        If API already exists - assign existed API id to 'id' attribute.
+        """
+        apis_list = self._api_client.get_rest_apis()['items']
+        for api in apis_list:
+            if api['name'] == self.name:
+                print(f'API Gateway {self.name} exist. Using it.')
+                self.id = api['id']
+                self.url = f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.' \
+                           f'amazonaws.com/vrsc/{self.api_endpoint}'
+                self.source_arn = f'arn:aws:execute-api:{self._api_client.meta.region_name}:' \
+                                  f'{self._account_id}:{self.id}/*/GET/{self.api_endpoint}'
+                return True
+        return False
+
+    def get_root_resource_id(self):
+        """
+        Returns parent id (root resource - path '/').
+        """
+        resources = self._api_client.get_resources(restApiId=self.id)
+        resource_items = resources['items']
+        for item in resource_items:
+            if item['path'] == '/':
+                # return root resource id
+                return item['id']
+
+    def delete_api(self):
+        """
+        Deletes API Gateway.
+        """
+        self._api_client.delete_rest_api(restApiId=self.id)
+        print(f'The API Gateway {self.name} has been deleted')
 
 
 def create_resources():
@@ -405,8 +537,14 @@ def create_resources():
     lambda_test = LambdaFunction(name='verus-lambda-func',
                                  role_arn=iam_role.arn,
                                  topic_arn=topic_test.arn)
+    # Deploy API Gateway
+    api = ApiGateway(name='verus-api-gateway', lambda_arn=lambda_test.arn)
+    # Grants API Gateway permission to use Lambda function
+    lambda_test.add_permission(source_arn=api.source_arn)
+    print(f'API URL: {api.url}')
     # lambda_test.delete_function()
     # iam_role.delete_role()
+    # api.delete_api()
 
 
 def delete_resources():
