@@ -27,7 +27,7 @@ class VerusStakeNotification:
         self.lambda_function.add_permission(source_arn=self.api.source_arn)
         self.url = self.api.url
 
-    def delete(self):
+    def delete(self) -> None:
         """
         Destroy all AWS resources.
         """

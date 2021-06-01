@@ -4,6 +4,10 @@ from pathlib import Path
 import subprocess
 import json
 from typing import Union
+import urllib.request
+import os
+
+from dotenv import load_dotenv
 
 
 class VerusProcess:
@@ -66,9 +70,12 @@ class VerusStakeChecker:
             self._store_txcount()
             # print('Not equal')
             if self._is_immature_balance():
-                # TODO: trigger external API
+                load_dotenv()
+                api_url = os.getenv('NOTIFICATION_API_URL')
+                # Trigger external API
+                contents = urllib.request.urlopen(api_url).read()
                 # print('New stake')
-                pass
+
 
     @property
     def txcount_current(self) -> str:
