@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import psutil
 from pathlib import Path
 import subprocess
