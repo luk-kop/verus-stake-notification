@@ -37,12 +37,18 @@ Other prerequisites:
 ## Build and run the app with virtualenv tool
 The application can be build and run locally with `virtualenv` tool. 
 
-1. Clone git repository (`git clone ...`) to user home directory and enter `verus-stake-notification` directory.
+1. Clone git repository to user home directory and enter `verus-stake-notification` directory.
+   ```bash
+   git clone https://github.com/luk-kop/verus-stake-notification.git
+   cd verus-stake-notification/
+   ```
    
 
 2. Run following commands in order to create virtual environment and install the required packages.
     ```bash
     $ virtualenv venv
+    # or 
+    $ python3 -m venv venv
     $ source venv/bin/activate
     (venv) $ pip install -r requirements.txt
     ```
@@ -50,7 +56,7 @@ The application can be build and run locally with `virtualenv` tool.
 3. Before running application you should create `.env` file in the root application directory (`verus-stake-notification`).
    The best solution is to copy the existing example file `.env-example` and edit the necessary data.
     ```bash
-    $ cp .env-example .env
+    (venv) $ cp .env-example .env
     ```
    
 4. Build AWS resources.
