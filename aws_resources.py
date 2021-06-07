@@ -158,7 +158,7 @@ class IamRoleLambda:
             # Attach AWSLambdaBasicExecutionRole managed policy
             self._iam_client.attach_role_policy(
                 RoleName=self.name,
-                PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+                PolicyArn=''
             )
             # Attach inline policy - allow Lambda publish to specified SNS topic
             self._iam_client.put_role_policy(

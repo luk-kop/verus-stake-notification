@@ -8,6 +8,7 @@ venv/
 /terraform_files/.terraform.lock.hcl
 /terraform_files/.terraform/
 /terraform_files/terraform.tfstate*
+*.zip
 
 notes*
 txcount*
