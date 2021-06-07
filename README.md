@@ -61,7 +61,7 @@ The application can be build and run locally with `virtualenv` tool.
    
 4. Build AWS resources.
     ```bash
-    (venv) $ python aws_environment.py build
+    (venv) $ python boto3_resources.py build
     ```
    
 5. Add a cronjob to check your wallet every 20 minutes
@@ -70,7 +70,7 @@ The application can be build and run locally with `virtualenv` tool.
     ```
    Add below line to `crontab` (please change your username accordingly):
    ```bash
-   */20 * * * * /home/user/verus-stake-notification/venv/bin/python /home/user/verus-stake-notification/check_block.py
+   */20 * * * * /home/user/verus-stake-notification/venv/bin/python /home/user/verus-stake-notification/check_new_stake.py
    ```
 
 6. To remove all project's AWS resources use below command.

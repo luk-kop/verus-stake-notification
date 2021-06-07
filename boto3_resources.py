@@ -50,6 +50,7 @@ def build_resources_wrapper():
     verus_resources = VerusStakeNotification()
     verus_resources.subscribe_email(email=email_to_notify)
     # Write API URL to .env file.
+    print('Store API URL to .env file')
     set_key(dotenv_path='.env', key_to_set='NOTIFICATION_API_URL', value_to_set=verus_resources.url)
 
 

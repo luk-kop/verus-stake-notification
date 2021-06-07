@@ -51,15 +51,13 @@ class VerusStakeChecker:
     """
     The class responsible for checking to confirm that a new stake has appeared in Verus wallet.
     """
-    def __init__(self, txcount_history_file: str = 'txcount_history.txt') -> None:
+    def __init__(self, txcount_history_file_name: str = 'txcount_history.txt') -> None:
         self.verus_process = VerusProcess()
         self.verus_script_name = 'verus'
-        self.txcount_history_file = txcount_history_file
+        self.txcount_history_file_path = Path(__file__).resolve().parent.joinpath(txcount_history_file_name)
         self.wallet_info = self._get_wallet_info()
         # Create txcount history file if not exist
-        if not Path(self.txcount_history_file).is_file():
-            with open(self.txcount_history_file, 'w') as file:
-                file.write('0')
+        self._create_history_file()
 
     def run(self) -> None:
         if self.verus_process.status:
@@ -75,6 +73,13 @@ class VerusStakeChecker:
                 contents = urllib.request.urlopen(api_url).read()
                 # print('New stake')
 
+    def _create_history_file(self):
+        """
+        Create txcount history file if not exist
+        """
+        if not self.txcount_history_file_path.is_file():
+            with open(self.txcount_history_file_path, 'w') as file:
+                file.write('0')
 
     @property
     def txcount_current(self) -> str:
@@ -88,7 +93,7 @@ class VerusStakeChecker:
         """
         Return 'txcount' value stored in 'txcount_history_file' (recent value).
         """
-        with open(self.txcount_history_file) as file:
+        with open(self.txcount_history_file_path) as file:
             content = file.read()
         return content
 
@@ -114,7 +119,7 @@ class VerusStakeChecker:
         """
         Write current 'txcount' value to 'txcount_history_file'.
         """
-        with open(self.txcount_history_file, mode='w') as file:
+        with open(self.txcount_history_file_path, mode='w') as file:
             file.write(self.txcount_current)
 
     def _get_immature_balance(self) -> int:
