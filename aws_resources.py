@@ -385,7 +385,8 @@ class LambdaFunction:
         self._lambda_client.delete_function(FunctionName=self.name)
         print(f'The Lambda function {self.name} has been deleted')
 
-    def add_permission(self, source_arn: str, statement_id: str = 'apigateway-get', principal: str = 'apigateway'):
+    def add_permission(self, source_arn: str, statement_id: str = 'allow-execution-from-apigateway',
+                       principal: str = 'apigateway'):
         """
         Grants AWS service or another account permission to use function.
         """

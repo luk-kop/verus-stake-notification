@@ -11,7 +11,7 @@ terraform {
 
 provider "aws" {
   profile = var.profile
-  region  = "eu-west-1"
+  region  = var.region
 }
 
 # SNS config
@@ -55,6 +55,64 @@ resource "aws_lambda_function" "verus_lambda" {
   tags = var.resource_tags
 }
 
+resource "aws_lambda_permission" "verus_api_lambda" {
+  statement_id  = "allow-execution-from-apigateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.verus_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "arn:aws:execute-api:${var.region}:${data.aws_caller_identity.current_aws_account.account_id}:${aws_api_gateway_rest_api.verus_api.id}/*/${aws_api_gateway_method.verus_api.http_method}${aws_api_gateway_resource.verus_api.path}"
+}
+
+# API Gateway config
+resource "aws_api_gateway_rest_api" "verus_api" {
+  name        = "verus-api-gateway-2"
+  description = "Invoke Lambda function to publish a msg to SNS topic when new stake appears in Verus wallet."
+  tags        = var.resource_tags
+}
+
+resource "aws_api_gateway_resource" "verus_api" {
+  parent_id   = aws_api_gateway_rest_api.verus_api.root_resource_id
+  path_part   = "stake"
+  rest_api_id = aws_api_gateway_rest_api.verus_api.id
+
+}
+
+resource "aws_api_gateway_method" "verus_api" {
+  authorization = "NONE"
+  http_method   = "GET"
+  resource_id   = aws_api_gateway_resource.verus_api.id
+  rest_api_id   = aws_api_gateway_rest_api.verus_api.id
+}
+
+resource "aws_api_gateway_integration" "verus_api" {
+  http_method             = aws_api_gateway_method.verus_api.http_method
+  resource_id             = aws_api_gateway_resource.verus_api.id
+  rest_api_id             = aws_api_gateway_rest_api.verus_api.id
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.verus_lambda.invoke_arn
+}
+
+resource "aws_api_gateway_deployment" "verus_api" {
+  rest_api_id = aws_api_gateway_rest_api.verus_api.id
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.verus_api.id,
+      aws_api_gateway_method.verus_api.id,
+      aws_api_gateway_integration.verus_api.id,
+    ]))
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "verus_api" {
+  deployment_id = aws_api_gateway_deployment.verus_api.id
+  rest_api_id   = aws_api_gateway_rest_api.verus_api.id
+  stage_name    = "vrsc"
+}
+
 # Data config
 data "archive_file" "lambda_zip" {
   type             = "zip"
@@ -80,3 +138,5 @@ data "aws_iam_policy_document" "verus_assume_role_policy" {
     }
   }
 }
+
+data "aws_caller_identity" "current_aws_account" {}
