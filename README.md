@@ -31,18 +31,23 @@ Python third party packages:
 
 Other prerequisites:
 * Running Verus CLI wallet on some Linux distribution. You can find appropriate wallet binaries on Verus Coin (VRSC) project website - [Verus wallet](https://verus.io/wallet/command-wallet).
-* Before using scripts, you need to set up authentication credentials for your AWS account (with programmatic access) using either the IAM Console or the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html).
+* The AWS account.  
+* Before using scripts, you need to set up authentication credentials for your AWS account (with programmatic access) using either the IAM Management Console or the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html) tool.
+* The [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) tool must be installed for deploy AWS resources using it (optional).
 * The `virtualenv` package already installed on the OS level.
 
-## Build and run the app with virtualenv tool
-The application can be build and run locally with `virtualenv` tool. 
+## Build and run the application
+The project creation process should be divided into two phases:
+1. Deployment of the AWS resources (infrastructure) with `boto3` package or `Terraform` tool.
+2. Setup script for monitoring the Verus wallet.
+
+In both phases we will use the `virtualenv` tool to build the application.
 
 1. Clone git repository to user home directory and enter `verus-stake-notification` directory.
    ```bash
    git clone https://github.com/luk-kop/verus-stake-notification.git
    cd verus-stake-notification/
    ```
-   
 
 2. Run following commands in order to create virtual environment and install the required packages.
     ```bash
@@ -53,18 +58,27 @@ The application can be build and run locally with `virtualenv` tool.
     (venv) $ pip install -r requirements.txt
     ```
 
-3. Before running application you should create `.env` file in the root application directory (`verus-stake-notification`).
+3. Before running the application you should create `.env` file in the root application directory (`verus-stake-notification`).
    The best solution is to copy the existing example file `.env-example` and edit the necessary data.
     ```bash
     (venv) $ cp .env-example .env
     ```
    
-4. Build AWS resources.
-    ```bash
-    (venv) $ python boto3_resources.py build
-    ```
+4. Build the AWS resources. You can choose one of two options:
+   * Deployment with `boto3` package:
+      ```bash
+      (venv) $ python boto3_resources.py build
+      ```
+     >**Note:** I realize that using `boto3` to build the AWS infrastructure can be tricky and there are dedicated tools for this, but I did it for self-education purposes.
    
-5. Add a cronjob to check your wallet every 20 minutes
+   * Deployment with `Terraform` tool:
+      ```bash
+      (venv) $ python terraform_resources.py build
+      # For more options use:
+      (venv) $ python terraform_resources.py -h
+      ```
+   
+5. Once the AWS resources are properly deployed, you should add a cronjob on the host with the Verus wallet running to check the status of the wallet every 20 minutes.
    ```bash
     (venv) $ crontab -e
     ```
@@ -74,6 +88,11 @@ The application can be build and run locally with `virtualenv` tool.
    ```
 
 6. To remove all project's AWS resources use below command.
-    ```bash
-    (venv) $ python aws_environment.py destroy
-    ```
+   * Deployment with `boto3` package:
+      ```bash
+      (venv) $ python aws_environment.py destroy
+      ```
+   * Deployment with `Terraform` tool:
+      ```bash
+      (venv) $ python terraform_resources.py destroy
+      ```

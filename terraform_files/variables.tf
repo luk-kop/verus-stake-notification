@@ -19,7 +19,7 @@ variable "resource_tags" {
 }
 
 variable "profile" {
-  description = "AWS profile used to run script"
+  description = "AWS profile used to deploy resources"
   type        = string
   default     = "default"
 }

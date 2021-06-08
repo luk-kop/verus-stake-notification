@@ -16,7 +16,7 @@ provider "aws" {
 
 # SNS config
 resource "aws_sns_topic" "verus_topic" {
-  name = "verus-topic-2"
+  name = "verus-topic"
   tags = var.resource_tags
 }
 
@@ -28,12 +28,12 @@ resource "aws_sns_topic_subscription" "verus_topic_subscription" {
 
 # IAM role config
 resource "aws_iam_role" "verus_iam_role_for_lambda" {
-  name                = "verus-lambda-to-sns-2"
+  name                = "verus-lambda-to-sns"
   tags                = var.resource_tags
   assume_role_policy  = data.aws_iam_policy_document.verus_assume_role_policy.json
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
   inline_policy {
-    name   = "verus-lambda-sns-publish-inline-2"
+    name   = "verus-lambda-sns-publish-inline"
     policy = data.aws_iam_policy_document.verus_role_inline_policy.json
   }
 }
@@ -41,7 +41,7 @@ resource "aws_iam_role" "verus_iam_role_for_lambda" {
 # Lambda config
 resource "aws_lambda_function" "verus_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
-  function_name    = "verus-lambda-func-2"
+  function_name    = "verus-lambda-func"
   description      = "Publish a msg to SNS topic when new stake appears in Verus wallet."
   role             = aws_iam_role.verus_iam_role_for_lambda.arn
   handler          = "lambda_function.lambda_handler"
@@ -65,7 +65,7 @@ resource "aws_lambda_permission" "verus_api_lambda" {
 
 # API Gateway config
 resource "aws_api_gateway_rest_api" "verus_api" {
-  name        = "verus-api-gateway-2"
+  name        = "verus-api-gateway"
   description = "Invoke Lambda function to publish a msg to SNS topic when new stake appears in Verus wallet."
   tags        = var.resource_tags
 }
