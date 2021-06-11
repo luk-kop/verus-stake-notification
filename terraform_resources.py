@@ -13,8 +13,11 @@ def build_resources_wrapper(command_params: dict) -> None:
     aws_profile = command_params['profile']
     # Get SNS Topic subscription email from env var
     email_to_notify = os.getenv('EMAIL_TO_NOTIFY')
+    wallet_ip = os.getenv('WALLET_PUBLIC_IP')
     options = ['terraform', 'apply', f'-var=region={aws_region}', f'-var=profile={aws_profile}',
                f'-var=sns_email={email_to_notify}']
+    if wallet_ip:
+        options.append(f'-var=wallet_ip={wallet_ip}')
     # Run 'terraform apply'
     subprocess.run(args=options)
     # Run 'terraform output api_url' to get API Gateway URL

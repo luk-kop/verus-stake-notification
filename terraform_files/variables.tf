@@ -29,3 +29,10 @@ variable "region" {
   type        = string
   default     = "eu-west-1"
 }
+
+
+variable "wallet_ip" {
+  description = "Public ip address of working Verus wallet"
+  type        = string
+  default     = "0.0.0.0/0"
+}

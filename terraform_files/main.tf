@@ -113,6 +113,11 @@ resource "aws_api_gateway_stage" "verus_api" {
   stage_name    = "vrsc"
 }
 
+resource "aws_api_gateway_rest_api_policy" "verus_api" {
+  rest_api_id = aws_api_gateway_rest_api.verus_api.id
+  policy      = data.aws_iam_policy_document.verus_api_resource_ip_limit_policy.json
+}
+
 # Data config
 data "archive_file" "lambda_zip" {
   type             = "zip"
@@ -135,6 +140,26 @@ data "aws_iam_policy_document" "verus_assume_role_policy" {
     principals {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "verus_api_resource_ip_limit_policy" {
+  statement {
+    actions   = ["execute-api:Invoke"]
+    resources = ["execute-api:/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "IpAddress"
+      variable = "aws:SourceIp"
+
+      values = [
+        var.wallet_ip
+      ]
     }
   }
 }
