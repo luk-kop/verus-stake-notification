@@ -1,18 +1,50 @@
 import json
 import boto3
 import os
+from uuid import uuid4
+from datetime import datetime
 
 
-def lambda_handler(event, context):
+def put_stake(stake_value: float, db_name):
+    """
+    Add new stake item to VerusStakes DynamoDB
+    """
+    if not db_name:
+        db_name = 'VerusStakes'
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(db_name)
+    response = table.put_item(
+        Item={
+            'stake_id': uuid4().hex,
+            'stake_value:': stake_value,
+            'stake_ts': datetime.utcnow().isoformat()
+        }
+    )
+
+
+def publish_to_sns(topic_arn: str):
     """
     Publish a message to the SNS topic.
     """
     client = boto3.client('sns')
     response = client.publish(
-        TopicArn=os.environ.get('TOPIC_ARN'),
+        TopicArn=topic_arn,
         Message='New stake in your VRSC wallet',
         Subject='New stake',
     )
+
+
+def lambda_handler(event, context):
+    """
+    Main function.
+    """
+    # Publish msg to SNS topic
+    publish_to_sns(topic_arn=os.environ.get('TOPIC_ARN'))
+
+    # Current stake value
+    stake_value = 12
+    # Put stake into DynamoDB
+    put_stake(stake_value=stake_value, db_name=os.environ.get('DYNAMODB_NAME'))
 
     return {
         'statusCode': 200,

@@ -34,7 +34,11 @@ resource "aws_iam_role" "verus_iam_role_for_lambda" {
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
   inline_policy {
     name   = "verus-lambda-sns-publish-inline"
-    policy = data.aws_iam_policy_document.verus_role_inline_policy.json
+    policy = data.aws_iam_policy_document.verus_role_inline_policy_sns.json
+  }
+  inline_policy {
+    name   = "verus-lambda-dynamodb-add-item-inline"
+    policy = data.aws_iam_policy_document.verus_role_inline_policy_dynamodb_add_item.json
   }
 }
 
@@ -50,6 +54,7 @@ resource "aws_lambda_function" "verus_lambda" {
   environment {
     variables = {
       TOPIC_ARN = aws_sns_topic.verus_topic.arn
+      DYNAMODB_NAME = aws_dynamodb_table.verus_stakes_table.id
     }
   }
   tags = var.resource_tags
@@ -118,20 +123,18 @@ resource "aws_api_gateway_rest_api_policy" "verus_api" {
   policy      = data.aws_iam_policy_document.verus_api_resource_ip_limit_policy.json
 }
 
-# DynamoDB
+# DynamoDB config
 resource "aws_dynamodb_table" "verus_stakes_table" {
   name           = "VerusStakes"
   billing_mode   = "PROVISIONED"
   read_capacity  = 1
   write_capacity = 1
   hash_key       = "stake_id"
-
   attribute {
     name = "stake_id"
     type = "S"
   }
-
-  tags        = var.resource_tags
+  tags = var.resource_tags
 }
 
 
@@ -143,7 +146,7 @@ data "archive_file" "lambda_zip" {
   output_path      = "${path.module}/files/lambda_function_payload.zip"
 }
 
-data "aws_iam_policy_document" "verus_role_inline_policy" {
+data "aws_iam_policy_document" "verus_role_inline_policy_sns" {
   statement {
     actions   = ["sns:Publish"]
     resources = [aws_sns_topic.verus_topic.arn]
@@ -158,6 +161,14 @@ data "aws_iam_policy_document" "verus_assume_role_policy" {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
     }
+  }
+}
+
+data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb_add_item" {
+  statement {
+    sid       = "AddItemToVerusStakesTable"
+    actions   = ["dynamodb:PutItem"]
+    resources = [aws_dynamodb_table.verus_stakes_table.arn]
   }
 }
 
