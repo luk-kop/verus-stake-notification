@@ -118,6 +118,23 @@ resource "aws_api_gateway_rest_api_policy" "verus_api" {
   policy      = data.aws_iam_policy_document.verus_api_resource_ip_limit_policy.json
 }
 
+# DynamoDB
+resource "aws_dynamodb_table" "verus_stakes_table" {
+  name           = "VerusStakes"
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 1
+  write_capacity = 1
+  hash_key       = "stake_id"
+
+  attribute {
+    name = "stake_id"
+    type = "S"
+  }
+
+  tags        = var.resource_tags
+}
+
+
 # Data config
 data "archive_file" "lambda_zip" {
   type             = "zip"

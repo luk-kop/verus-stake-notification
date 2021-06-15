@@ -5,9 +5,8 @@ __pycache__/
 .idea/
 venv/
 # Exclude some terraform data
-/terraform_files/.terraform.lock.hcl
-/terraform_files/.terraform/
-/terraform_files/terraform.tfstate*
+terraform_files/terraform.tfstate*
+terraform_files/.terraform*
 *.zip
 
 notes*
