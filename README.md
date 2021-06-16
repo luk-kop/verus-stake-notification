@@ -13,13 +13,14 @@
 * The `check_new_stake.py` can be run at regular intervals on the machine running the Verus wallet (with cronjob or systemd timer). If a new steak arrives, the script calls the API Gateway in AWS Cloud.
 * Orphan stakes and new transactions (transferring cryptocurrency from/to wallet) are not counted.
 * The email address to be notified of a new stake is stored in `.env` file (`EMAIL_TO_NOTIFY`).
+* The new stake is also added to the Amazon DynamoDB table (with timestamp and stake value).  
 * Access to the API Gateway can be limited to a selected ip address (Verus wallet public ip address):
   - To limit access to specific public ip address - set `WALLET_PUBLIC_IP='your-public-ip-address'` in `.env` file;
   - To leave the API Gateway open to the public - set `WALLET_PUBLIC_IP=''` in `.env` file.
 * The API Gateway URL is added to `.env` file during AWS environment build (`NOTIFICATION_API_URL`). This URL is called up by the `check_new_stake.py` script when it detects a new stake.
 
 ## Project architecture
-![Project architecture](./images/project_architecture.png)
+![Project architecture](./images/project_architecture.jpg)
 
 ## Getting Started
 
