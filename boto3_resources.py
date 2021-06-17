@@ -3,7 +3,7 @@ import argparse
 
 from dotenv import load_dotenv, set_key
 
-from aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, ApiGateway
+from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, ApiGateway
 
 
 class VerusStakeNotification:

@@ -3,6 +3,7 @@ from psutil import Popen, Process
 import os
 
 from check_new_stake import VerusProcess, VerusStakeChecker
+from resources.aws_policy import PolicyStatement
 
 
 def create_dummy_processes():
@@ -42,7 +43,7 @@ def verus_stake_checker():
     Create VerusStakeChecker() object with custom txcount history file.
     """
     filename = 'txcount_test.txt'
-    stake_checker = VerusStakeChecker(txcount_history_file=filename)
+    stake_checker = VerusStakeChecker(txcount_history_file_name=filename)
     # Setup dummy processes
     process_dummy, process_to_test = create_dummy_processes()
     stake_checker.verus_process = process_to_test
@@ -75,4 +76,15 @@ def dummy_wallet_new_stake():
         'txcount': 11
     }
     return wallet_info
+
+
+@fixture
+def dummy_policy_statement():
+    """
+    Return dummy policy statement.
+    """
+    policy_statement = PolicyStatement(effect='Allow',
+                                       actions=['execute-api:Invoke'],
+                                       resources=['execute-api:/*'])
+    return policy_statement
 

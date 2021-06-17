@@ -424,6 +424,8 @@ class ApiGateway:
         Method can also be used to recreate API Gateway resource after deleting it with 'delete_api' method.
         """
         if not self.check_api_exist():
+            resource_policy = ''
+
             api = self._api_client.create_rest_api(
                 name=self.name,
                 description='Invoke Lambda function to publish a msg to SNS topic when new stake appears in Verus wallet.',
