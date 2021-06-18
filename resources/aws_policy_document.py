@@ -31,7 +31,7 @@ class PolicyStatement:
     """
     effect: str
     actions: list
-    resources: list
+    resources: list = field(default_factory=list)
     principals: dict = field(default_factory=dict)
     sid: str = None
     conditions: dict = field(default_factory=dict)
@@ -43,8 +43,7 @@ class PolicyStatement:
         """
         new_statement = {
             'Effect': self.effect,
-            'Action': self.actions[0] if len(self.actions) == 1 else self.actions,
-            'Resource': self.resources
+            'Action': self.actions[0] if len(self.actions) == 1 else self.actions
         }
         if self.sid:
             new_statement['Sid'] = self.sid
@@ -52,6 +51,8 @@ class PolicyStatement:
             new_statement['Condition'] = self.conditions
         if self.principals:
             new_statement['Principal'] = self.principals
+        if self.resources:
+            new_statement['Resource'] = self.resources
         return new_statement
 
     def add_condition(self, condition_operator: str, condition_key: str, condition_value: List[str]) -> None:

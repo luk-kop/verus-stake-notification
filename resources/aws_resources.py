@@ -146,7 +146,7 @@ class IamRoleLambda:
         try:
             iam_role = self._iam_client.create_role(
                 RoleName=self.name,
-                AssumeRolePolicyDocument=json.dumps(self.trust_relationship_policy),
+                AssumeRolePolicyDocument=self.trust_relationship_policy,
                 Path='/service-role/',
                 Description='IAM role for verus notification',
                 Tags=[
@@ -162,21 +162,24 @@ class IamRoleLambda:
                 PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
             )
             # Attach inline policy - allow Lambda publish to specified SNS topic
+            sns_policy_doc = self.create_policy_document(actions=['sns:Publish'],
+                                                         resources=[self.topic_arn])
             self._iam_client.put_role_policy(
                 RoleName=self.name,
                 PolicyName='verus-lambda-sns-publish-inline',
-                PolicyDocument=f'{{"Version":"2012-10-17","Statement":'
-                               f'{{"Effect":"Allow","Action":"sns:Publish","Resource":"{self.topic_arn}"}}}}'
+                PolicyDocument=sns_policy_doc
             )
             # TODO: change to specific DynamDB table (ARN)
             # Attach inline policy - allow Lambda to put item into DynamoDB table
+            dynamodb_policy_doc = self.create_policy_document(
+                actions=['dynamodb:PutItem'],
+                resources=['arn:aws:dynamodb:*']
+            )
             self._iam_client.put_role_policy(
                 RoleName=self.name,
                 PolicyName='verus-lambda-dynamodb-put-item-inline',
-                PolicyDocument=f'{{"Version":"2012-10-17","Statement":'
-                               f'{{"Effect":"Allow","Action":"dynamodb:PutItem","Resource":"arn:aws:dynamodb:*"}}}}'
+                PolicyDocument=dynamodb_policy_doc
             )
-
             print(f'The IAM role {self.name} created')
         except ClientError as error:
             if error.response['Error']['Code'] == 'EntityAlreadyExists':
@@ -189,24 +192,28 @@ class IamRoleLambda:
         self.role_id = iam_role['Role']['RoleId']
 
     @property
-    def trust_relationship_policy(self) -> dict:
+    def trust_relationship_policy(self) -> str:
         """
         The trust relationship policy document that grants an entity permission to assume the IAM Role.
         Only Lambda resource can assume this IAM Role.
         """
-        policy = {
-            'Version': '2012-10-17',
-            'Statement': [
-                {
-                    'Effect': 'Allow',
-                    'Principal': {
-                        'Service': 'lambda.amazonaws.com'
-                    },
-                    'Action': 'sts:AssumeRole'
-                }
-            ]
-        }
-        return policy
+        policy = PolicyDocumentCustom()
+        policy_statement = PolicyStatement(effect='Allow',
+                                           principals={'Service': 'lambda.amazonaws.com'},
+                                           actions=['sts:AssumeRole'])
+        policy.add_statement(policy_statement)
+        return policy.get_json()
+
+    def create_policy_document(self, actions: list, resources: list, effect: str = 'Allow') -> str:
+        """
+        Returns policy document in JSON format.
+        """
+        policy = PolicyDocumentCustom()
+        policy_statement = PolicyStatement(effect=effect,
+                                           actions=actions,
+                                           resources=resources)
+        policy.add_statement(policy_statement)
+        return policy.get_json()
 
     def list_attached_polices(self) -> List[dict]:
         """
