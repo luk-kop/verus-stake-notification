@@ -1,6 +1,6 @@
 import json
 
-from resources.aws_policy import PolicyStatement, PolicyCustom, PolicyStatementCondition
+from resources.aws_policy_document import PolicyDocumentCustom, PolicyStatementCondition
 
 
 def test_condition_one_condition_pair():
@@ -61,7 +61,7 @@ def test_policy_schema_no_statement():
     WHEN PolicyCustom object has been created without statement.
     THEN Object created without statement part.
     """
-    policy = PolicyCustom()
+    policy = PolicyDocumentCustom()
     desired_policy = {
         'Version': '2012-10-17',
         'Statement': []
@@ -75,7 +75,7 @@ def test_policy_schema_one_statement_no_condition(dummy_policy_statement):
     WHEN Created object with one statement.
     THEN Object created with statement part and no conditions.
     """
-    test_policy = PolicyCustom()
+    test_policy = PolicyDocumentCustom()
     test_policy.add_statement(dummy_policy_statement)
     desired_policy = {
         'Version': '2012-10-17',
@@ -96,7 +96,7 @@ def test_policy_json_one_statement_no_condition( dummy_policy_statement):
     WHEN Created object with one statement.
     THEN Return policy data in JSON format.
     """
-    test_policy = PolicyCustom()
+    test_policy = PolicyDocumentCustom()
     test_policy.add_statement( dummy_policy_statement)
     desired_policy = {
         'Version': '2012-10-17',

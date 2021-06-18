@@ -25,7 +25,9 @@ class PolicyStatementCondition:
 @dataclass
 class PolicyStatement:
     """
-    AWS policy statement.
+    Class represents AWS policy statement.
+    Objects of a class are used as an element of 'statements' attribute in object created with
+    PolicyDocumentCustom class.
     """
     effect: str
     actions: list
@@ -69,18 +71,30 @@ class PolicyStatement:
         }
 
 
-class PolicyCustom:
+class PolicyDocumentCustom:
     """
     AWS policy object. It represent identity-based or resource-based policy.
+    Policy can be returned in JSON format or as a Python dictionary.
+    Basic usage:
+    - create object of a PolicyDocumentCustom class.
+    - create object (or objects) of a PolicyStatement class.
+    - add created statement objects to policy document object with 'add_statement' method.
+    - return policy document in JSON format ('get_json' method) or as Python dictionary ('schema' method).
     """
     def __init__(self):
         self.statements = []
 
     def add_statement(self, statement: PolicyStatement) -> None:
+        """
+        Add statement (PolicyStatement object) to policy.
+        """
         self.statements.append(statement.data)
 
     @property
     def schema(self) -> dict:
+        """
+        Returns policy as Python dictionary
+        """
         policy = {
             'Version': '2012-10-17',
             'Statement': self.statements
@@ -88,5 +102,10 @@ class PolicyCustom:
         return policy
 
     def get_json(self) -> str:
+        """
+        Returns policy in JSON format.
+        """
         return json.dumps(self.schema)
+
+
 

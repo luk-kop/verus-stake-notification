@@ -6,6 +6,7 @@ from time import sleep
 
 import boto3
 from botocore.exceptions import ClientError
+from resources.aws_policy_document import PolicyStatement, PolicyDocumentCustom
 
 
 class SnsTopic:
@@ -158,7 +159,7 @@ class IamRoleLambda:
             # Attach AWSLambdaBasicExecutionRole managed policy
             self._iam_client.attach_role_policy(
                 RoleName=self.name,
-                PolicyArn=''
+                PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
             )
             # Attach inline policy - allow Lambda publish to specified SNS topic
             self._iam_client.put_role_policy(
@@ -167,6 +168,15 @@ class IamRoleLambda:
                 PolicyDocument=f'{{"Version":"2012-10-17","Statement":'
                                f'{{"Effect":"Allow","Action":"sns:Publish","Resource":"{self.topic_arn}"}}}}'
             )
+            # TODO: change to specific DynamDB table (ARN)
+            # Attach inline policy - allow Lambda to put item into DynamoDB table
+            self._iam_client.put_role_policy(
+                RoleName=self.name,
+                PolicyName='verus-lambda-dynamodb-put-item-inline',
+                PolicyDocument=f'{{"Version":"2012-10-17","Statement":'
+                               f'{{"Effect":"Allow","Action":"dynamodb:PutItem","Resource":"arn:aws:dynamodb:*"}}}}'
+            )
+
             print(f'The IAM role {self.name} created')
         except ClientError as error:
             if error.response['Error']['Code'] == 'EntityAlreadyExists':
@@ -230,10 +240,14 @@ class IamRoleLambda:
         # Detach all managed policies
         for policy in self.list_attached_polices():
             self.detach_policy(policy['PolicyArn'])
-        # Delete inline policy
+        # Delete inline policies
         self._iam_client.delete_role_policy(
             RoleName=self.name,
             PolicyName='verus-lambda-sns-publish-inline'
+        )
+        self._iam_client.delete_role_policy(
+            RoleName=self.name,
+            PolicyName='verus-lambda-dynamodb-put-item-inline'
         )
         # Delete IAM Role
         self._iam_client.delete_role(RoleName=self.name)
@@ -354,7 +368,8 @@ class LambdaFunction:
                         },
                         Environment={
                             'Variables': {
-                                'TOPIC_ARN': self.topic_arn
+                                'TOPIC_ARN': self.topic_arn,
+                                'DYNAMODB_NAME': 'VerusStakes'
                             }
                         }
                     )
@@ -424,7 +439,7 @@ class ApiGateway:
         Method can also be used to recreate API Gateway resource after deleting it with 'delete_api' method.
         """
         if not self.check_api_exist():
-            resource_policy = ''
+            resource_policy = self.create_policy()
 
             api = self._api_client.create_rest_api(
                 name=self.name,
@@ -433,7 +448,7 @@ class ApiGateway:
                 endpointConfiguration={
                     'types': ['REGIONAL'],
                 },
-                # policy='string',
+                policy=resource_policy,
                 tags={
                     'Project': 'verus-notification'
                 },
@@ -524,6 +539,22 @@ class ApiGateway:
             if item['path'] == '/':
                 # return root resource id
                 return item['id']
+
+    def create_policy(self):
+        """
+        Creates resource-based policy for API Gateway endpoint
+        """
+        policy = PolicyDocumentCustom()
+        policy_statement = PolicyStatement(effect='Allow',
+                                           actions='execute-api:Invoke',
+                                           resources='execute-api:/*',
+                                           principals='*')
+        policy_statement.add_condition(condition_operator='IpAddress',
+                                       condition_key='aws:SourceIp',
+                                       condition_value=['0.0.0.0/0'])
+        policy.add_statement(policy_statement)
+        return policy.get_json()
+
 
     def delete_api(self):
         """
