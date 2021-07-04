@@ -2,6 +2,7 @@
 
 [![Python 3.8.5](https://img.shields.io/badge/python-3.8.5-blue.svg)](https://www.python.org/downloads/release/python-377/)
 [![Boto3](https://img.shields.io/badge/Boto3-1.17.78-blue.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+[![Terraform](https://img.shields.io/badge/Terraform-0.14.9-blueviolet.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
 > The **Verus stake notification** is an application that monitors the state of your **Verus Coin (VRSC)** cryptocurrency wallet.
@@ -10,7 +11,7 @@
 ## Features
 * The `aws_environment.py` script allows you to build or destroy dedicated environment in the AWS Cloud. The AWS resources created will send an email to a selected address if there is a new stake in the wallet.
 * The AWS resources are deployed with AWS SDK for Python (Boto3).  
-* The `check_new_stake.py` can be run at regular intervals on the machine running the Verus wallet (with cronjob or systemd timer). If a new steak arrives, the script calls the API Gateway in AWS Cloud.
+* The `check_new_stake.py` can be run at regular intervals on the machine running the Verus wallet (with cronjob or systemd timer). If a new stake arrives, the script calls the API Gateway in AWS Cloud.
 * Orphan stakes and new transactions (transferring cryptocurrency from/to wallet) are not counted.
 * The email address to be notified of a new stake is stored in `.env` file (`EMAIL_TO_NOTIFY`).
 * The new stake is also added to the Amazon DynamoDB table (with timestamp and stake value).  
@@ -34,7 +35,7 @@ Python third party packages:
 * [psutil](https://pypi.org/project/psutil/)
 
 Other prerequisites:
-* Running Verus CLI wallet on some Linux distribution. You can find appropriate wallet binaries on Verus Coin (VRSC) project website - [Verus wallet](https://verus.io/wallet/command-wallet).
+* The **Verus Coin (VRSC) CLI wallet** running on some Linux distribution. You can find appropriate wallet binaries on Verus Coin (VRSC) project website - [Verus wallet](https://verus.io/wallet/command-wallet).
 * The AWS account.  
 * Before using scripts, you need to set up authentication credentials for your AWS account (with programmatic access) using either the IAM Management Console or the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html) tool.
 * The [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) tool must be installed for deploy AWS resources using it (optional).

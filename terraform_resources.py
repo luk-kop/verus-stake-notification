@@ -21,6 +21,7 @@ def build_resources_wrapper(command_params: dict) -> None:
     # Run 'terraform apply'
     subprocess.run(args=options)
     # Run 'terraform output api_url' to get API Gateway URL
+    # terraform output -json
     api_data = subprocess.run(args=['terraform', 'output', 'api_url'], capture_output=True, text=True)
     api_url = api_data.stdout.strip('"').rstrip('\n')
     if api_url.startswith("https://"):

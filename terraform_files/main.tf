@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.27"
+      version = "~> 3.48"
     }
   }
 
@@ -53,7 +53,7 @@ resource "aws_lambda_function" "verus_lambda" {
   runtime          = "python3.8"
   environment {
     variables = {
-      TOPIC_ARN = aws_sns_topic.verus_topic.arn
+      TOPIC_ARN     = aws_sns_topic.verus_topic.arn
       DYNAMODB_NAME = aws_dynamodb_table.verus_stakes_table.id
     }
   }
@@ -68,6 +68,38 @@ resource "aws_lambda_permission" "verus_api_lambda" {
   source_arn    = "arn:aws:execute-api:${var.region}:${data.aws_caller_identity.current_aws_account.account_id}:${aws_api_gateway_rest_api.verus_api.id}/*/${aws_api_gateway_method.verus_api.http_method}${aws_api_gateway_resource.verus_api.path}"
 }
 
+# Cognito config
+resource "aws_cognito_user_pool" "verus_cognito_pool" {
+  name = "verus-notification-pool"
+  admin_create_user_config {
+    allow_admin_create_user_only = true
+  }
+}
+
+resource "aws_cognito_resource_server" "verus_cognito_resource_server" {
+  identifier = "verus-api"
+  name       = "verus-api-resource-server"
+  scope {
+    scope_name        = "api-read"
+    scope_description = "Read access to the API"
+  }
+  user_pool_id = aws_cognito_user_pool.verus_cognito_pool.id
+}
+
+resource "aws_cognito_user_pool_domain" "verus_cognito_domain" {
+  domain       = var.cognito_pool_domain
+  user_pool_id = aws_cognito_user_pool.verus_cognito_pool.id
+}
+
+resource "aws_cognito_user_pool_client" "verus_cognito_client" {
+  name                                 = "verus-cli-wallet"
+  user_pool_id                         = aws_cognito_user_pool.verus_cognito_pool.id
+  generate_secret                      = true
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["client_credentials"]
+  allowed_oauth_scopes                 = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+}
+
 # API Gateway config
 resource "aws_api_gateway_rest_api" "verus_api" {
   name        = "verus-api-gateway"
@@ -79,14 +111,22 @@ resource "aws_api_gateway_resource" "verus_api" {
   parent_id   = aws_api_gateway_rest_api.verus_api.root_resource_id
   path_part   = "stake"
   rest_api_id = aws_api_gateway_rest_api.verus_api.id
+}
 
+resource "aws_api_gateway_authorizer" "verus_auth" {
+  name          = "VerusApiAuth"
+  type          = "COGNITO_USER_POOLS"
+  rest_api_id   = aws_api_gateway_rest_api.verus_api.id
+  provider_arns = [aws_cognito_user_pool.verus_cognito_pool.arn]
 }
 
 resource "aws_api_gateway_method" "verus_api" {
-  authorization = "NONE"
-  http_method   = "GET"
-  resource_id   = aws_api_gateway_resource.verus_api.id
-  rest_api_id   = aws_api_gateway_rest_api.verus_api.id
+  authorization        = "COGNITO_USER_POOLS"
+  authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
+  http_method          = "GET"
+  resource_id          = aws_api_gateway_resource.verus_api.id
+  rest_api_id          = aws_api_gateway_rest_api.verus_api.id
+  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
 }
 
 resource "aws_api_gateway_integration" "verus_api" {
@@ -136,7 +176,6 @@ resource "aws_dynamodb_table" "verus_stakes_table" {
   }
   tags = var.resource_tags
 }
-
 
 # Data config
 data "archive_file" "lambda_zip" {
