@@ -1,8 +1,52 @@
 import argparse
 import os
 import subprocess
+import json
+import sys
+from pathlib import Path
 
 from dotenv import load_dotenv, set_key
+
+
+def store_terraform_output() -> None:
+    """
+    Function store necessary data from terraform output to .env-api file.
+    Stored data will be used with API call.
+    """
+    try:
+        terraform_output_data_json = subprocess.getoutput('terraform output -json')
+        terraform_output_data_dict = json.loads(terraform_output_data_json)
+        data_to_store ={
+            'NOTIFICATION_API_URL': terraform_output_data_dict['api_url']['value'],
+            'COGNITO_CLIENT_ID': terraform_output_data_dict['cognito_client_id']['value'],
+            'COGNITO_CLIENT_SECRET': terraform_output_data_dict['cognito_client_secret']['value'],
+            'COGNITO_TOKEN_URL': terraform_output_data_dict['cognito_token_url']['value']
+        }
+        cognito_scopes_list = terraform_output_data_dict['cognito_scopes']['value']
+        # A space-separated list of scopes to request for the generated access token
+        if len(cognito_scopes_list) == 1:
+            data_to_store['COGNITO_OAUTH_LIST_OF_SCOPES'] = cognito_scopes_list[0]
+        else:
+            data_to_store['COGNITO_OAUTH_LIST_OF_SCOPES'] = ' '.join(cognito_scopes_list)
+    except (json.decoder.JSONDecodeError, KeyError, AttributeError):
+        print('Issue with terraform output. Exiting the script...')
+        sys.exit()
+    os.chdir('..')
+    # Write terraform output data to .env-api file.
+    print('Store terraform output data to .env-api file')
+    for data_key, data_value in data_to_store.items():
+        set_key(dotenv_path='.env-api', key_to_set=data_key, value_to_set=data_value)
+
+
+def get_env_path():
+    """
+    Return .env file path if exists.
+    """
+    path = Path(__file__).resolve().parent.joinpath('.env')
+    if not path.exists() or not path.is_file():
+        print(f'File {path} not exists!')
+        sys.exit()
+    return path
 
 
 def build_resources_wrapper(command_params: dict) -> None:
@@ -20,15 +64,8 @@ def build_resources_wrapper(command_params: dict) -> None:
         options.append(f'-var=wallet_ip={wallet_ip}')
     # Run 'terraform apply'
     subprocess.run(args=options)
-    # Run 'terraform output api_url' to get API Gateway URL
-    # terraform output -json
-    api_data = subprocess.run(args=['terraform', 'output', 'api_url'], capture_output=True, text=True)
-    api_url = api_data.stdout.strip('"').rstrip('\n')
-    if api_url.startswith("https://"):
-        os.chdir('..')
-        # Write API URL to .env file.
-        print('Store API URL to .env file')
-        set_key(dotenv_path='.env', key_to_set='NOTIFICATION_API_URL', value_to_set=api_url)
+    # Run 'terraform output api_url' to get necessary data for API call
+    store_terraform_output()
 
 
 def destroy_resources_wrapper() -> None:
@@ -41,8 +78,9 @@ def destroy_resources_wrapper() -> None:
 
 
 if __name__ == '__main__':
+    env_path = get_env_path()
     # Get environment variables from .env file
-    load_dotenv()
+    load_dotenv(env_path)
     # Create parent parser
     parser_parent = argparse.ArgumentParser(description='The script deploys AWS resources with terraform')
     # Add arguments
