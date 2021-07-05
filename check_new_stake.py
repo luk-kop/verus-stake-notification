@@ -1,12 +1,12 @@
 import psutil
-from pathlib import Path
 import subprocess
 import json
 from typing import Union
-import urllib.request
-import os
+import sys
+from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
+import requests
 
 
 class VerusProcess:
@@ -67,13 +67,39 @@ class VerusStakeChecker:
             self._store_txcount()
             # print('Not equal')
             if self._is_immature_balance():
-                load_dotenv()
-                api_url = os.getenv('NOTIFICATION_API_URL')
+                # Load API related env vars from .env-api file.
+                env_data = self._load_env_data()
                 # Trigger external API
-                contents = urllib.request.urlopen(api_url).read()
+                api = ApiGatewayCognito(env_data=env_data)
+                api.call()
+                # TODO: new stake to log
                 # print('New stake')
 
-    def _create_history_file(self):
+    def _load_env_data(self) -> Union[None, dict]:
+        """
+        Load API environment variables from .env-api
+        """
+        env_path = Path(__file__).resolve().parent.joinpath('.env-api')
+        if not env_path.exists() or not env_path.is_file():
+            # TODO: logger.error(f'File {env_path} not exists!')
+            print(f'File {env_path} not exists!')
+            sys.exit()
+        env_data = dotenv_values(env_path)
+        env_required = [
+            'NOTIFICATION_API_URL',
+            'COGNITO_CLIENT_ID',
+            'COGNITO_CLIENT_SECRET',
+            'COGNITO_OAUTH_LIST_OF_SCOPES',
+            'COGNITO_TOKEN_URL'
+        ]
+        for env in env_required:
+            if env not in env_data.keys():
+                # TODO logger.error(f'The {env} in .env-api is missing.')
+                print(f'The {env} in .env-api file is missing.')
+                sys.exit()
+        return env_data
+
+    def _create_history_file(self) -> None:
         """
         Create txcount history file if not exist
         """
@@ -142,6 +168,59 @@ class VerusStakeChecker:
         if self._get_immature_balance() == 0:
             return False
         return True
+
+
+class ApiGatewayCognito:
+    """
+    Class responsible for calling external API using the access token fetched from Cognito service.
+    """
+    def __init__(self, env_data: dict):
+        self.cognito_token_url = env_data['COGNITO_TOKEN_URL']
+        self.cognito_client_id = env_data['COGNITO_CLIENT_ID']
+        self.cognito_client_secret = env_data['COGNITO_CLIENT_SECRET']
+        self.scopes = env_data['COGNITO_OAUTH_LIST_OF_SCOPES']
+        self.api_gateway_url = env_data['NOTIFICATION_API_URL']
+
+    def call(self) -> None:
+        """
+        Method triggers the API Gateway endpoint with access token as the value of the Authorization header.
+        """
+        access_token = self.get_access_token()
+        headers = {
+            'Authorization': access_token
+        }
+        response = requests.get(self.api_gateway_url, headers=headers)
+        self.check_response_status(response)
+
+    def get_access_token(self) -> str:
+        """
+        Method retrieves the access token from Amazon Cognito authorization server.
+        """
+        body = {
+            'grant_type': 'client_credentials',
+            'scope': self.scopes
+        }
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        response = requests.post(
+            url=self.cognito_token_url,
+            data=body,
+            auth=(self.cognito_client_id, self.cognito_client_secret),
+            headers=headers
+        )
+        self.check_response_status(response)
+        return response.json()['access_token']
+
+    def check_response_status(self, response):
+        """
+        Exit script when response status code different than 200.
+        """
+        if response.status_code != 200:
+            response_text = (response.text[:87] + '...') if len(response.text) > 90 else response.text
+            # TODO: logger.error(f'API response: {response.code} {response_text}')
+            print(f'API response: {response.status_code} {response_text}')
+            sys.exit()
 
 
 if __name__ == '__main__':
