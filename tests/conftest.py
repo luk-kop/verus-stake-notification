@@ -2,7 +2,7 @@ from pytest import fixture
 from psutil import Popen, Process
 import os
 
-from check_new_stake import VerusProcess, VerusStakeChecker
+from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker
 from resources.aws_policy_document import PolicyStatement
 
 

@@ -35,7 +35,7 @@ def store_terraform_output() -> None:
     # Write terraform output data to .env-api file.
     print('Store terraform output data to .env-api file')
     for data_key, data_value in data_to_store.items():
-        set_key(dotenv_path='.env-api', key_to_set=data_key, value_to_set=data_value)
+        set_key(dotenv_path='new_stake_script/.env-api', key_to_set=data_key, value_to_set=data_value)
 
 
 def get_env_path():

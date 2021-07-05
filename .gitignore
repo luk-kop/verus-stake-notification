@@ -1,7 +1,7 @@
 *.pyc
 __pycache__/
 .env
-.env-api
+new_stake_script/.env-api
 *.db
 .idea/
 venv/
