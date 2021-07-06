@@ -4,9 +4,19 @@ import json
 from typing import Union
 import sys
 from pathlib import Path
+import logging
 
 from dotenv import dotenv_values
 import requests
+
+# Custom logger
+logger = logging.getLogger(__name__)
+log_path = Path(__file__).resolve().parent.joinpath('stake.log')
+file_handler = logging.FileHandler(log_path)
+log_format = logging.Formatter('%(asctime)s - %(message)s')
+file_handler.setFormatter(log_format)
+file_handler.setLevel(logging.INFO)
+logger.addHandler(file_handler)
 
 
 class VerusProcess:
@@ -62,18 +72,17 @@ class VerusStakeChecker:
     def run(self) -> None:
         if self.verus_process.status:
             if not self._is_txcount_different():
-                # print('Equal')
                 return
             self._store_txcount()
-            # print('Not equal')
             if self._is_immature_balance():
                 # Load API related env vars from .env-api file.
                 env_data = self._load_env_data()
                 # Trigger external API
                 api = ApiGatewayCognito(env_data=env_data)
                 api.call()
-                # TODO: new stake to log
-                # print('New stake')
+                logger.info('New stake')
+                return
+        logger.error('verusd process is not running')
 
     def _load_env_data(self) -> Union[None, dict]:
         """
@@ -81,8 +90,7 @@ class VerusStakeChecker:
         """
         env_path = Path(__file__).resolve().parent.joinpath('.env-api')
         if not env_path.exists() or not env_path.is_file():
-            # TODO: logger.error(f'File {env_path} not exists!')
-            print(f'File {env_path} not exists!')
+            logger.error(f'File {env_path} not exists!')
             sys.exit()
         env_data = dotenv_values(env_path)
         env_required = [
@@ -94,8 +102,7 @@ class VerusStakeChecker:
         ]
         for env in env_required:
             if env not in env_data.keys():
-                # TODO logger.error(f'The {env} in .env-api is missing.')
-                print(f'The {env} in .env-api file is missing.')
+                logger.error(f'The {env} in .env-api is missing.')
                 sys.exit()
         return env_data
 
@@ -218,8 +225,7 @@ class ApiGatewayCognito:
         """
         if response.status_code != 200:
             response_text = (response.text[:87] + '...') if len(response.text) > 90 else response.text
-            # TODO: logger.error(f'API response: {response.code} {response_text}')
-            print(f'API response: {response.status_code} {response_text}')
+            logger.error(f'API response: {response.code} {response_text}')
             sys.exit()
 
 

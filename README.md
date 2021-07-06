@@ -22,6 +22,7 @@
   - To leave the API Gateway open to the public - set `WALLET_PUBLIC_IP=''` in `.env` file.
 * The **API Gateway** URL and **Amazon Cognito** data are added to `new_stake_script/.env-api` file during AWS environment build.
 * Data stored in `new_stake_script/.env-api` file are used by the `check_new_stake.py` script when it detects a new stake.
+* The script `check_new_stake.py` saves its logs in a `new_stake_script/stake.log` file.
 
 ## Project architecture
 ![Project architecture](./images/project_architecture.jpg)
@@ -119,11 +120,11 @@ In both phases we will use the `virtualenv` tool to build the application.
    ```
 
 7. To remove all project's AWS resources use below command. Remember to activate virtual environment before run commands (should be issued on the host from which you built the infrastructure).
-   * Deployment with `boto3` package:
+   * Removing AWS resources with `boto3` package:
       ```bash
       (venv) $ python aws_environment.py destroy
       ```
-   * Deployment with `Terraform` tool:
+   * Removing AWS resources with `Terraform` tool:
       ```bash
       (venv) $ python terraform_resources.py destroy
       ```

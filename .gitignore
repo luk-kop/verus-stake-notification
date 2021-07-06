@@ -3,6 +3,7 @@ __pycache__/
 .env
 new_stake_script/.env-api
 *.db
+*.log
 .idea/
 venv/
 # Exclude some terraform data
