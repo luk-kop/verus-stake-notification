@@ -3,7 +3,7 @@ import argparse
 
 from dotenv import load_dotenv, set_key
 
-from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, ApiGateway
+from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, ApiGateway, DynamoDb
 
 
 class VerusStakeNotification:
@@ -13,9 +13,12 @@ class VerusStakeNotification:
     def __init__(self):
         # Deploy SNS topic
         self.topic = SnsTopic(name='verus-topic')
+        # Deploy DynamoDB
+        self.dynamodb = DynamoDb(name='VerusStakes')
         # Deploy IAM Role for Lambda
         self.iam_role = IamRoleLambda(name='verus-lambda-to-sns',
-                                      topic_arn=self.topic.arn)
+                                      topic_arn=self.topic.arn,
+                                      dynamodb_arn=self.dynamodb.arn)
         # Deploy Lambda function
         self.lambda_function = LambdaFunction(name='verus-lambda-func',
                                               role_arn=self.iam_role.arn,
@@ -37,6 +40,7 @@ class VerusStakeNotification:
         Destroy (delete) all AWS resources related to Verus stake notification project.
         """
         self.topic.delete_topic()
+        self.dynamodb.delete_table()
         self.lambda_function.delete_function()
         self.api.delete_api()
         self.iam_role.delete_role()
@@ -50,8 +54,8 @@ def build_resources_wrapper():
     verus_resources = VerusStakeNotification()
     verus_resources.subscribe_email(email=email_to_notify)
     # Write API URL to .env file.
-    print('Store API URL to .env file')
-    set_key(dotenv_path='.env', key_to_set='NOTIFICATION_API_URL', value_to_set=verus_resources.url)
+    print('Store API URL to .env-api file')
+    set_key(dotenv_path='new_stake_script/.env-api', key_to_set='NOTIFICATION_API_URL', value_to_set=verus_resources.url)
 
 
 def destroy_resources_wrapper():

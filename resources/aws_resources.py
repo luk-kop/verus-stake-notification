@@ -130,9 +130,10 @@ class IamRoleLambda:
     Class represents IAM role resource. If a role with the specified name already exists, it is used.
     IAM role that allow Lambda function to publish messages to a SNS Topic.
     """
-    def __init__(self, name: str, topic_arn: str):
+    def __init__(self, name: str, topic_arn: str, dynamodb_arn: str):
         self.name = name
         self.topic_arn = topic_arn
+        self.dynamodb_arn = dynamodb_arn
         self._iam_client = boto3.client('iam')
         self.arn = None
         self.role_id = None
@@ -169,11 +170,11 @@ class IamRoleLambda:
                 PolicyName='verus-lambda-sns-publish-inline',
                 PolicyDocument=sns_policy_doc
             )
-            # TODO: change to specific DynamDB table (ARN)
             # Attach inline policy - allow Lambda to put item into DynamoDB table
             dynamodb_policy_doc = self.create_policy_document(
                 actions=['dynamodb:PutItem'],
-                resources=['arn:aws:dynamodb:*']
+                # resources=['arn:aws:dynamodb:*']
+                resources=[self.dynamodb_arn]
             )
             self._iam_client.put_role_policy(
                 RoleName=self.name,
@@ -562,10 +563,81 @@ class ApiGateway:
         policy.add_statement(policy_statement)
         return policy.get_json()
 
-
     def delete_api(self):
         """
         Deletes API Gateway.
         """
         self._api_client.delete_rest_api(restApiId=self.id)
         print(f'The API Gateway {self.name} has been deleted')
+
+
+class DynamoDb:
+    """
+    Class represents DynamoDB table resource. If a DynamoDB with the specified name already exists, it is used.
+    """
+    def __init__(self, name: str):
+        self.name = name
+        self.arn = None
+        self._dynamodb_client = boto3.client('dynamodb')
+        self.create_dynamodb()
+
+    def create_dynamodb(self) -> None:
+        """
+        Creates DynamoDB table resource. Method is called whenever a new instance of DynamoDb is created.
+        Method creates a new DynamoDB table or assigns an ARN value to 'arn' attribute if one already exists.
+        """
+        if not self.check_table_exist():
+            dynamodb_table = self._dynamodb_client.create_table(
+                TableName='VerusStakes',
+                AttributeDefinitions=[
+                    {
+                        'AttributeName': 'stake_id',
+                        'AttributeType': 'S'
+                    }],
+                KeySchema=[
+                    {
+                        'AttributeName': 'stake_id',
+                        'KeyType': 'HASH'
+                    },
+                ],
+                BillingMode='PROVISIONED',
+                ProvisionedThroughput={
+                    'ReadCapacityUnits': 1,
+                    'WriteCapacityUnits': 1
+                },
+                Tags=[
+                    {
+                        'Key': 'Project',
+                        'Value': 'verus-notification'
+                    },
+                ]
+            )
+            self.arn = dynamodb_table['TableDescription']['TableArn']
+            print(f'The DynamoDB {self.name} table created')
+            return
+        print(f'The DynamoDB {self.name} table already exists. Using it.')
+        self.arn = self.get_table_arn()
+
+    def check_table_exist(self) -> bool:
+        """
+        Checks whether a DynamoDB table with the given name already exists.
+        """
+        tables_names = self._dynamodb_client.list_tables()['TableNames']
+        if self.name in tables_names:
+            return True
+        return False
+
+    def get_table_arn(self) -> str:
+        """
+        Returns DynamoDB table ARN.
+        """
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table(self.name)
+        return table.table_arn
+
+    def delete_table(self):
+        """
+        Deletes DynamoDB table.
+        """
+        self._dynamodb_client.delete_table(TableName=self.name)
+        print(f'The DynamoDB {self.name} table has been deleted')
