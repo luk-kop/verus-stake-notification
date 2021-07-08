@@ -134,8 +134,26 @@ resource "aws_api_gateway_integration" "verus_api" {
   resource_id             = aws_api_gateway_resource.verus_api.id
   rest_api_id             = aws_api_gateway_rest_api.verus_api.id
   integration_http_method = "POST"
-  type                    = "AWS_PROXY"
+  type                    = "AWS"
   uri                     = aws_lambda_function.verus_lambda.invoke_arn
+  connection_type         = "INTERNET"
+}
+
+resource "aws_api_gateway_method_response" "verus_api_response_200" {
+  http_method = aws_api_gateway_method.verus_api.http_method
+  resource_id = aws_api_gateway_resource.verus_api.id
+  rest_api_id = aws_api_gateway_rest_api.verus_api.id
+  status_code = "200"
+}
+
+resource "aws_api_gateway_integration_response" "response_200" {
+  http_method       = aws_api_gateway_method.verus_api.http_method
+  resource_id       = aws_api_gateway_resource.verus_api.id
+  rest_api_id       = aws_api_gateway_rest_api.verus_api.id
+  status_code       = aws_api_gateway_method_response.verus_api_response_200.status_code
+  selection_pattern = ""
+  content_handling  = "CONVERT_TO_TEXT"
+  depends_on        = [aws_api_gateway_integration.verus_api]
 }
 
 resource "aws_api_gateway_deployment" "verus_api" {
