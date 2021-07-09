@@ -588,7 +588,7 @@ class DynamoDb:
         """
         if not self.check_table_exist():
             dynamodb_table = self._dynamodb_client.create_table(
-                TableName='VerusStakes',
+                TableName=self.name,
                 AttributeDefinitions=[
                     {
                         'AttributeName': 'stake_id',
