@@ -1,5 +1,3 @@
-from typing import Union
-
 import boto3
 
 
@@ -9,16 +7,17 @@ class CognitoUserPool:
     """
     def __init__(self, name: str):
         self.name = name
-        self.arn = None
-        self.id = None
         self._cognito_client = boto3.client('cognito-idp')
+        if self._check_exist():
+            self.arn = self.get_arn()
+        else:
+            self.arn, self.id = None, None
 
     def create_resource(self) -> None:
         """
-        Creates Cognito user pool resource or
+        Creates Cognito user pool resource.
         """
-        user_pool = self.get_user_pool()
-        if not user_pool:
+        if not self._check_exist():
             cognito_user_pool = self._cognito_client.create_user_pool(
                 PoolName=self.name,
                 AdminCreateUserConfig={
@@ -30,17 +29,24 @@ class CognitoUserPool:
             print(f'The Cognito "{self.name}" user pool created')
             return
         print(f'The Cognito "{self.name}" user pool exists. Using it.')
-        self.id = user_pool['Id']
-        self.arn = self.get_arn()
 
-    def get_user_pool(self) -> Union[None, dict]:
+    def _check_exist(self) -> bool:
         """
-        Returns Cognito user pool if exist.
+        Checks if Cognito user pool resource with specified name already exist.
+        Assign 'id' attribute if pool exist.
         """
-        user_pools_list = self._cognito_client.list_user_pools(MaxResults=60)['UserPools']
-        for pool in user_pools_list:
+        for pool in self._user_pools:
             if pool['Name'] == self.name:
-                return pool
+                self.id = pool['Id']
+                return True
+        return False
+
+    @property
+    def _user_pools(self) -> list:
+        """
+        Returns list of already created Cognito user pools.
+        """
+        return self._cognito_client.list_user_pools(MaxResults=60)['UserPools']
 
     def get_arn(self):
         """
@@ -91,14 +97,6 @@ class CognitoResourceServer:
             print(f'The Cognito resource server "{self.name}" created')
             return
         print(f'The Cognito resource server "{self.name}" exists. Using it.')
-
-    def get_resource_server(self) -> Union[None, dict]:
-        """
-        Returns Cognito resource server if exist.
-        """
-        for server in self._resource_servers:
-            if server['Name'] == self.name:
-                return server
 
     def _check_exist(self) -> bool:
         """
