@@ -15,7 +15,7 @@ class CognitoUserPool:
 
     def create_resource(self) -> None:
         """
-        Creates Cognito user pool resource.
+        Creates Cognito user pool resource in AWS cloud.
         """
         if not self._check_exist():
             cognito_user_pool = self._cognito_client.create_user_pool(
@@ -56,7 +56,7 @@ class CognitoUserPool:
 
     def delete_resource(self):
         """
-        Deletes Cognito user pool.
+        Deletes Cognito user pool in AWS cloud.
         """
         self._cognito_client.delete_user_pool(UserPoolId=self.id)
         print(f'The Cognito "{self.name}" user pool has been deleted')
@@ -85,7 +85,7 @@ class CognitoResourceServer:
 
     def create_resource(self) -> None:
         """
-        Creates Cognito resource server resource.
+        Creates Cognito resource server resource in AWS cloud.
         """
         if not self._check_exist():
             self._cognito_client.create_resource_server(
@@ -117,7 +117,7 @@ class CognitoResourceServer:
 
     def delete_resource(self) -> None:
         """
-        Deletes Cognito resource server.
+        Deletes Cognito resource server in AWS cloud.
         """
         if self._check_exist():
             self._cognito_client.delete_resource_server(UserPoolId=self.user_pool_id,
@@ -125,6 +125,40 @@ class CognitoResourceServer:
             print(f'The Cognito resource server "{self.name}" has been deleted')
             return
         print(f'The Cognito resource server "{self.name}" does not exist')
+
+
+class CognitoUserPoolDomain:
+    """
+    Class represents domain for Cognito user pool.
+    """
+    def __init__(self, domain_prefix: str, user_pool_id: str) -> None:
+        self.domain = domain_prefix
+        self.user_pool_id = user_pool_id
+        self._cognito_client = boto3.client('cognito-idp')
+
+    def create_resource(self) -> None:
+        """
+        Creates Cognito user pool domain resource in AWS cloud.
+        """
+        try:
+            self._cognito_client.create_user_pool_domain(
+                Domain=self.domain,
+                UserPoolId=self.user_pool_id,
+            )
+            print(f'The Cognito user pool domain "{self.domain}" created')
+        except self._cognito_client.exceptions.InvalidParameterException as err:
+            print(err.response['Error']['Message'])
+
+    def delete_resource(self) -> None:
+        """
+        Deletes Cognito user pool domain in AWS cloud.
+        """
+        try:
+            self._cognito_client.delete_user_pool_domain(UserPoolId=self.user_pool_id,
+                                                         Domain=self.domain)
+            print(f'The Cognito user pool domain "{self.domain}" has been deleted')
+        except self._cognito_client.exceptions.InvalidParameterException as err:
+            print(err.response['Error']['Message'])
 
 
 if __name__ == '__main__':
@@ -136,5 +170,10 @@ if __name__ == '__main__':
     resource_srv.add_scope(name='api-read',
                            description='Read access to the API')
     resource_srv.create_resource()
+
+    domain = CognitoUserPoolDomain(domain_prefix='verus-test123', user_pool_id=pool.id)
+    domain.create_resource()
+
+    domain.delete_resource()
     resource_srv.delete_resource()
     pool.delete_resource()
