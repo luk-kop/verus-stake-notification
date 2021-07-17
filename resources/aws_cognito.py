@@ -8,27 +8,24 @@ class CognitoUserPool:
     def __init__(self, name: str):
         self.name = name
         self._cognito_client = boto3.client('cognito-idp')
-        self.arn = self._get_arn()
-        self.id = self._get_id()
 
     def create_resource(self) -> None:
         """
         Creates Cognito user pool resource in AWS cloud.
         """
         if not self._check_exist():
-            cognito_user_pool = self._cognito_client.create_user_pool(
+            self._cognito_client.create_user_pool(
                 PoolName=self.name,
                 AdminCreateUserConfig={
                     'AllowAdminCreateUserOnly': True
                 },
             )
-            self.arn = cognito_user_pool['UserPool']['Arn']
-            self.id = cognito_user_pool['UserPool']['Id']
             print(f'The Cognito "{self.name}" user pool created.')
             return
         print(f'The Cognito "{self.name}" user pool exists. Using it.')
 
-    def _get_id(self) -> str:
+    @property
+    def id(self):
         """
         Returns user pool id.
         """
@@ -37,26 +34,18 @@ class CognitoUserPool:
                 return pool['Id']
         return ''
 
-    def _remove_id(self) -> None:
-        """
-        Clear 'id' attribute.
-        """
-        self.id = ''
-
-    def _get_arn(self) -> str:
+    @property
+    def arn(self) -> str:
         """
         Returns Cognito user pool ARN.
         """
-        try:
-            return self._cognito_client.describe_user_pool(UserPoolId=self.id)['UserPool']['Arn']
-        except AttributeError:
-            return ''
-
-    def _remove_arn(self) -> None:
-        """
-        Clear 'arn' attribute.
-        """
-        self.arn = ''
+        pool_id = self.id
+        if pool_id:
+            try:
+                return self._cognito_client.describe_user_pool(UserPoolId=pool_id)['UserPool']['Arn']
+            except AttributeError:
+                pass
+        return ''
 
     def _check_exist(self) -> bool:
         """
@@ -90,8 +79,6 @@ class CognitoUserPool:
             try:
                 self._cognito_client.delete_user_pool(UserPoolId=self.id)
                 print(f'The Cognito user pool "{self.name}" has been deleted')
-                self._remove_id()
-                self._remove_arn()
             except self._cognito_client.exceptions.InvalidParameterException as err:
                 print(err.response['Error']['Message'])
             return
@@ -213,7 +200,6 @@ class CognitoUserPoolClient:
         self.user_pool_id = user_pool_id
         self.scopes = scopes
         self._cognito_client = boto3.client('cognito-idp')
-        self.id = self._get_id()
 
     def create_resource(self) -> None:
         """
@@ -228,7 +214,6 @@ class CognitoUserPoolClient:
                 AllowedOAuthScopes=self.scopes
             )
             print(f'The Cognito user pool client "{self.name}" created')
-            self.id = resource['UserPoolClient']['ClientId']
             return
         print(f'The Cognito user pool client "{self.name}" exists. Using it.')
 
@@ -240,7 +225,8 @@ class CognitoUserPoolClient:
         return self._cognito_client.list_user_pool_clients(MaxResults=60,
                                                            UserPoolId=self.user_pool_id)['UserPoolClients']
 
-    def _get_id(self) -> str:
+    @property
+    def id(self) -> str:
         """
         Returns user pool client id.
         """
@@ -248,12 +234,6 @@ class CognitoUserPoolClient:
             if client['ClientName'] == self.name:
                 return client['ClientId']
         return ''
-
-    def _remove_id(self) -> None:
-        """
-        Clear 'id' attribute.
-        """
-        self.id = ''
 
     def _check_exist(self) -> bool:
         """
@@ -271,7 +251,6 @@ class CognitoUserPoolClient:
             self._cognito_client.delete_user_pool_client(UserPoolId=self.user_pool_id,
                                                          ClientId=self.id)
             print(f'The Cognito user pool client "{self.name}" has been deleted')
-            self._remove_id()
             return
         print(f'The Cognito user pool client "{self.name}" does not exist')
 

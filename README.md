@@ -52,7 +52,7 @@ Other prerequisites:
 The project creation process is divided into two phases:
 1. Deployment of the AWS resources (infrastructure) with `boto3` package or `Terraform` tool.
 2. Setup script for monitoring the VRSC wallet.
-> **Note:** It is recommended to build the AWS infrastructure on a different host (fe. locally) than the one running the VRSC wallet. 
+> :warning: **Note:** It is recommended to build the AWS infrastructure on a different host (fe. locally) than the one running the VRSC wallet. 
 
 In both phases we will use the `virtualenv` tool to build the application.
 
@@ -84,7 +84,7 @@ In both phases we will use the `virtualenv` tool to build the application.
       # deactivate virtual environment after infrastructure deployment
       (venv) $ deactivate
       ```
-     >**Note:** I realize that using `boto3` to build the AWS infrastructure can be tricky and there are dedicated tools for this, but I did it for self-education purposes.
+     > **Note:** I realize that using `boto3` to build the AWS infrastructure can be tricky and there are dedicated tools for this, but I did it for self-education purposes.
    
    * Deployment with `Terraform` tool:
       ```bash
@@ -100,7 +100,7 @@ In both phases we will use the `virtualenv` tool to build the application.
     # example of a copying a dictionary to remote host using the rsync tool 
     $ rsync -avzP new_stake_script/ user@your-vrsc-wallet-host:~/new_stake_script/
     ```
-   > **Note:** After setting up the AWS resources correctly and copying the `new_stake_script` directory to the host with the VRSC wallet running, for testing purposes you can get **Cognito Access Token** and make a test call to the API Gateway with `get_cognito_token.sh`.
+   > :warning: **Note:** After setting up the AWS resources correctly and copying the `new_stake_script` directory to the host with the VRSC wallet running, for testing purposes you can get **Cognito Access Token** and make a test call to the API Gateway with `get_cognito_token.sh`.
 6. On the host with running VRSC wallet run following commands in order to create virtual environment and install the required packages.
     ```bash
     $ cd ~/new_stake_script/
