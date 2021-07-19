@@ -9,9 +9,9 @@
 > If you "win the block", the application will inform you of a staking reward (new stake) that have appeared in your Verus CLI wallet.
 
 ## Features
-* The project uses AWS services to notify the user about the new staking reward (stake) in the VRSC wallet.
+* The project uses Python script and AWS services to notify the user about the new staking reward (stake) in the VRSC wallet.
 * The `Terraform` tool or `boto3` AWS SDK for Python are used to build and destroy dedicated environment in the AWS Cloud.
-* The `check_new_stake.py` can be run at regular intervals on the machine running the VRSC wallet (with cronjob or systemd timer). If a new stake arrives, the script calls the **API Gateway** in AWS Cloud.
+* The `check_new_stake.py` script can be run at regular intervals on the machine running the VRSC wallet (with cronjob or systemd timer). If a new stake arrives, the script calls the **API Gateway** in AWS Cloud.
 * When the **API Gateway** URL is invoked, the created AWS resources will send email notification to a selected address.
 * Orphan stakes and new transactions (transferring cryptocurrency from/to wallet) are not counted.
 * The email address that will be notified about new stake is stored in `.env` file (`EMAIL_TO_NOTIFY`).

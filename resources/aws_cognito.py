@@ -1,3 +1,5 @@
+from typing import List, Dict
+
 import boto3
 
 
@@ -142,8 +144,11 @@ class CognitoResourceServer:
         """
         Returns list of already created Cognito resource servers for specific user pool.
         """
-        return self._cognito_client.list_resource_servers(UserPoolId=self.user_pool_id,
-                                                          MaxResults=50)['ResourceServers']
+        try:
+            return self._cognito_client.list_resource_servers(UserPoolId=self.user_pool_id,
+                                                              MaxResults=50)['ResourceServers']
+        except self._cognito_client.exceptions.ResourceNotFoundException:
+            return []
 
     def delete_resource(self) -> None:
         """
@@ -206,7 +211,7 @@ class CognitoUserPoolClient:
         Creates Cognito user pool client resource in AWS cloud.
         """
         if not self._check_exist():
-            resource = self._cognito_client.create_user_pool_client(
+            self._cognito_client.create_user_pool_client(
                 ClientName=self.name,
                 UserPoolId=self.user_pool_id,
                 GenerateSecret=True,
@@ -222,8 +227,11 @@ class CognitoUserPoolClient:
         """
         Returns list of already created Cognito user pool clients.
         """
-        return self._cognito_client.list_user_pool_clients(MaxResults=60,
-                                                           UserPoolId=self.user_pool_id)['UserPoolClients']
+        try:
+            return self._cognito_client.list_user_pool_clients(MaxResults=60,
+                                                               UserPoolId=self.user_pool_id)['UserPoolClients']
+        except self._cognito_client.exceptions.ResourceNotFoundException:
+            return []
 
     @property
     def id(self) -> str:
@@ -255,28 +263,75 @@ class CognitoUserPoolClient:
         print(f'The Cognito user pool client "{self.name}" does not exist')
 
 
+class CognitoResources:
+    """
+    Class represents all Cognito related resources used in verus-notification project.
+    During object initialization, new AWS resources are created or existing resources are used.
+    """
+    def __init__(self, user_pool_name: str, resource_server_scopes: List[Dict], pool_domain: str, name_prefix: str):
+        self.name_prefix = name_prefix
+        self.scopes = resource_server_scopes
+        self.pool_domain = pool_domain
+        # Cognito user pool instantiation
+        self.user_pool = CognitoUserPool(name=user_pool_name)
+        self.user_pool.create_resource()
+        # Cognito resource server instantiation
+        self.resource_server = CognitoResourceServer(name=f'{self.name_prefix}-resource-server',
+                                                     identifier=f'{self.name_prefix}-id',
+                                                     user_pool_id=self.user_pool.id)
+        for scope in scopes:
+            self.resource_server.add_scope(name=scope['name'], description=scope['description'])
+        self.resource_server.create_resource()
+        # Cognito user pool domain instantiation
+        self.domain = CognitoUserPoolDomain(domain_prefix=self.pool_domain, user_pool_id=self.user_pool.id)
+        self.domain.create_resource()
+        # Cognito user pool client instantiation
+        self.user_pool_client = CognitoUserPoolClient(name='verus-cli-wallet',
+                                                      user_pool_id=self.user_pool.id,
+                                                      scopes=self.resource_server.scope_identifiers)
+        self.user_pool_client.create_resource()
+
+    def create(self) -> None:
+        """
+        Creates all Cognito related resources. Method can be used to recreate Cognito resources after deletion.
+        """
+        self.user_pool.create_resource()
+        self.update_user_pool_id()
+        self.resource_server.create_resource()
+        self.domain.create_resource()
+        self.user_pool_client.create_resource()
+
+    def delete(self) -> None:
+        """
+        Deletes all Cognito related resources.
+        """
+        self.user_pool_client.delete_resource()
+        self.domain.delete_resource()
+        self.resource_server.delete_resource()
+        self.user_pool.delete_resource()
+
+    def update_user_pool_id(self) -> None:
+        """
+        Updates user pool id.
+        """
+        new_id = self.user_pool.id
+        self.resource_server.user_pool_id = new_id
+        self.domain.user_pool_id = new_id
+        self.user_pool_client.user_pool_id = new_id
+
+
 if __name__ == '__main__':
-    # Create Cognito User Pool
-    pool = CognitoUserPool(name='TestPool')
-    pool.create_resource()
-    # Create Resource Server
-    resource_srv = CognitoResourceServer(name='verus-api-resource-server',
-                                         identifier='verus-api',
-                                         user_pool_id=pool.id)
-    resource_srv.add_scope(name='api-read',
-                           description='Read access to the API')
-    resource_srv.create_resource()
-    # Create User Pool domain
-    domain = CognitoUserPoolDomain(domain_prefix='verus-test123', user_pool_id=pool.id)
-    domain.create_resource()
-    # Create User Pool Client
-    user_pool_client = CognitoUserPoolClient(name='verus-cli-wallet',
-                                             user_pool_id=pool.id,
-                                             scopes=resource_srv.scope_identifiers)
-    user_pool_client.create_resource()
-    # Delete all Cognito related resources.
-    user_pool_client.delete_resource()
-    domain.delete_resource()
-    resource_srv.delete_resource()
-    user_pool_client.delete_resource()
-    pool.delete_resource()
+    # Example of use CognitoResources class
+    scopes = [
+        {
+            'name': 'api-read',
+            'description': 'Read access to the API'
+         }
+    ]
+    resources = CognitoResources(user_pool_name='TestVerusPool',
+                                 resource_server_scopes=scopes,
+                                 pool_domain='verus-test-12345',
+                                 name_prefix='verus-api')
+    resources.delete()
+
+
