@@ -279,7 +279,7 @@ class CognitoResources:
         self.resource_server = CognitoResourceServer(name=f'{self.name_prefix}-resource-server',
                                                      identifier=f'{self.name_prefix}-id',
                                                      user_pool_id=self.user_pool.id)
-        for scope in scopes:
+        for scope in resource_server_scopes:
             self.resource_server.add_scope(name=scope['name'], description=scope['description'])
         self.resource_server.create_resource()
         # Cognito user pool domain instantiation
@@ -320,8 +320,10 @@ class CognitoResources:
         self.user_pool_client.user_pool_id = new_id
 
 
-if __name__ == '__main__':
-    # Example of use CognitoResources class
+def main() -> None:
+    """
+    Main function - example of use CognitoResources class
+    """
     scopes = [
         {
             'name': 'api-read',
@@ -333,5 +335,9 @@ if __name__ == '__main__':
                                  pool_domain='verus-test-12345',
                                  name_prefix='verus-api')
     resources.delete()
+
+
+if __name__ == '__main__':
+    main()
 
 
