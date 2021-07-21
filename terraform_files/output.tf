@@ -17,7 +17,7 @@ output "cognito_client_secret" {
 
 output "cognito_token_url" {
   description = "Cognito token URL"
-  value       = "https://${var.cognito_pool_domain}.auth.${var.region}.amazoncognito.com/oauth2/token"
+  value       = "https://${local.domain_prefix}.auth.${var.region}.amazoncognito.com/oauth2/token"
 }
 
 output "cognito_scopes" {

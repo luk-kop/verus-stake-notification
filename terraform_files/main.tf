@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.48"
+      version = "~> 3.50"
     }
   }
 
@@ -14,9 +14,30 @@ provider "aws" {
   region  = var.region
 }
 
+locals {
+  domain_prefix = "${var.cognito_pool_domain}-${random_string.name.id}"
+}
+
+# Random resources
+resource "random_id" "name" {
+  byte_length = 8
+}
+
+resource "random_string" "name" {
+  length  = 8
+  lower   = true
+  special = false
+  number  = true
+  upper   = false
+}
+
+resource "random_pet" "name" {
+  length = 1
+}
+
 # SNS config
 resource "aws_sns_topic" "verus_topic" {
-  name = "verus-topic"
+  name = "verus-topic-${random_id.name.hex}"
   tags = var.resource_tags
 }
 
@@ -28,7 +49,7 @@ resource "aws_sns_topic_subscription" "verus_topic_subscription" {
 
 # IAM role config
 resource "aws_iam_role" "verus_iam_role_for_lambda" {
-  name                = "verus-lambda-to-sns"
+  name                = "verus-lambda-to-sns-${random_id.name.hex}"
   tags                = var.resource_tags
   assume_role_policy  = data.aws_iam_policy_document.verus_assume_role_policy.json
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
@@ -45,7 +66,7 @@ resource "aws_iam_role" "verus_iam_role_for_lambda" {
 # Lambda config
 resource "aws_lambda_function" "verus_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
-  function_name    = "verus-lambda-func"
+  function_name    = "verus-lambda-func-${random_id.name.hex}"
   description      = "Publish a msg to SNS topic when new stake appears in Verus wallet."
   role             = aws_iam_role.verus_iam_role_for_lambda.arn
   handler          = "lambda_function.lambda_handler"
@@ -70,7 +91,7 @@ resource "aws_lambda_permission" "verus_api_lambda" {
 
 # Cognito config
 resource "aws_cognito_user_pool" "verus_cognito_pool" {
-  name = "verus-notification-pool"
+  name = "vrsc-notification-pool-${random_pet.name.id}"
   admin_create_user_config {
     allow_admin_create_user_only = true
   }
@@ -87,7 +108,8 @@ resource "aws_cognito_resource_server" "verus_cognito_resource_server" {
 }
 
 resource "aws_cognito_user_pool_domain" "verus_cognito_domain" {
-  domain       = var.cognito_pool_domain
+  //  domain       = "${var.cognito_pool_domain}-${random_string.name.id}"
+  domain       = local.domain_prefix
   user_pool_id = aws_cognito_user_pool.verus_cognito_pool.id
 }
 
@@ -102,7 +124,7 @@ resource "aws_cognito_user_pool_client" "verus_cognito_client" {
 
 # API Gateway config
 resource "aws_api_gateway_rest_api" "verus_api" {
-  name        = "verus-api-gateway"
+  name        = "verus-api-gateway-${random_id.name.hex}"
   description = "Invoke Lambda function to publish a msg to SNS topic when new stake appears in Verus wallet."
   tags        = var.resource_tags
 }
@@ -183,7 +205,7 @@ resource "aws_api_gateway_rest_api_policy" "verus_api" {
 
 # DynamoDB config
 resource "aws_dynamodb_table" "verus_stakes_table" {
-  name           = "VerusStakes"
+  name           = "verus-stakes-db-${random_id.name.hex}"
   billing_mode   = "PROVISIONED"
   read_capacity  = 1
   write_capacity = 1

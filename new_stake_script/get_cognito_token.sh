@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 # Script can be used to fetch Cognito Access Token or to call API Gateway (with Access Token onboard)
-env_file_path=".env-api"
+env_dir="$(dirname "$(readlink -fm "$0")")"
+env_file_path=$env_dir/.env-api
+#env_file_path=".env-api"
 
 # Check whether $env_file_path exists
 if [ ! -f "$env_file_path" ]; then
@@ -35,15 +37,14 @@ done
 get_access_token() {
   # Base64 encode
   local client_data_base64="$(echo -n "$COGNITO_CLIENT_ID:$COGNITO_CLIENT_SECRET" | openssl base64)"
-
   local response=$(curl --silent --request POST \
     --header 'Content-Type: application/x-www-form-urlencoded' \
     --header "Authorization: Basic $(echo $client_data_base64)" \
     --data-urlencode 'grant_type=client_credentials' \
     --data-urlencode "scope=$(echo $COGNITO_OAUTH_LIST_OF_SCOPES)" \
     $COGNITO_TOKEN_URL)
-#  local access_token="$(echo $response | jq --raw-output '.access_token')"
-local access_token="$(echo $response | python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')"
+  #  local access_token="$(echo $response | jq --raw-output '.access_token')"
+  local access_token="$(echo $response | python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')"
   echo $access_token
 }
 
