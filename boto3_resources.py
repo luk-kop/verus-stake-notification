@@ -3,14 +3,15 @@ import argparse
 
 from dotenv import load_dotenv, set_key
 
-from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, ApiGateway, DynamoDb
+from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, DynamoDb
+from resources.aws_api_gateway import ApiGateway
 
 
 class VerusStakeNotification:
     """
     Class represents all AWS resources necessary to run Verus stake notification project.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         # Deploy SNS topic
         self.topic = SnsTopic(name='verus-topic')
         # Deploy DynamoDB
@@ -29,7 +30,7 @@ class VerusStakeNotification:
         self.lambda_function.add_permission(source_arn=self.api.source_arn)
         self.url = self.api.url
 
-    def subscribe_email(self, email: str):
+    def subscribe_email(self, email: str) -> None:
         """
         Subscribe email (endpoint) to SNS topic.
         """
@@ -46,7 +47,7 @@ class VerusStakeNotification:
         self.iam_role.delete_role()
 
 
-def build_resources_wrapper():
+def build_resources_wrapper() -> None:
     """
     Function run by the parser to build AWS resources.
     """
@@ -58,7 +59,7 @@ def build_resources_wrapper():
     set_key(dotenv_path='new_stake_script/.env-api', key_to_set='NOTIFICATION_API_URL', value_to_set=verus_resources.url)
 
 
-def destroy_resources_wrapper():
+def destroy_resources_wrapper() -> None:
     """
     Function run by the parser to remove AWS resources.
     """

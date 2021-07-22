@@ -4,6 +4,7 @@ import subprocess
 import json
 import sys
 from pathlib import Path
+from typing import Union
 
 from dotenv import load_dotenv, set_key
 
@@ -38,7 +39,7 @@ def store_terraform_output() -> None:
         set_key(dotenv_path='new_stake_script/.env-api', key_to_set=data_key, value_to_set=data_value)
 
 
-def get_env_path():
+def get_env_path() -> Union[None, str]:
     """
     Return .env file path if exists.
     """

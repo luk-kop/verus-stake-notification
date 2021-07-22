@@ -181,7 +181,7 @@ class ApiGatewayCognito:
     """
     Class responsible for calling external API using the access token fetched from Cognito service.
     """
-    def __init__(self, env_data: dict):
+    def __init__(self, env_data: dict) -> None:
         self.cognito_token_url = env_data['COGNITO_TOKEN_URL']
         self.cognito_client_id = env_data['COGNITO_CLIENT_ID']
         self.cognito_client_secret = env_data['COGNITO_CLIENT_SECRET']
@@ -219,7 +219,7 @@ class ApiGatewayCognito:
         self.check_response_status(response)
         return response.json()['access_token']
 
-    def check_response_status(self, response):
+    def check_response_status(self, response) -> None:
         """
         Exit script when response status code different than 200.
         """

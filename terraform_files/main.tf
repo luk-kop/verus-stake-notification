@@ -108,7 +108,6 @@ resource "aws_cognito_resource_server" "verus_cognito_resource_server" {
 }
 
 resource "aws_cognito_user_pool_domain" "verus_cognito_domain" {
-  //  domain       = "${var.cognito_pool_domain}-${random_string.name.id}"
   domain       = local.domain_prefix
   user_pool_id = aws_cognito_user_pool.verus_cognito_pool.id
 }
