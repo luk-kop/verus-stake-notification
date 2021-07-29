@@ -1,8 +1,9 @@
 import boto3
-from typing import List
+from typing import List, Union
+from dataclasses import dataclass
 
 from resources.aws_policy_document import PolicyStatement, PolicyDocumentCustom
-from resources.aws_cognito import CognitoUserPool
+from resources.aws_cognito import CognitoUserPool, CognitoResources
 
 
 class ApiGateway:
@@ -19,7 +20,6 @@ class ApiGateway:
         self.api_endpoint = 'stake'
         self._api_client = boto3.client('apigateway')
         self._account_id = boto3.client('sts').get_caller_identity()['Account']
-        self.authorizers = []
         self.create_api()
 
     def create_api(self) -> None:
@@ -118,6 +118,33 @@ class ApiGateway:
                 return True
         return False
 
+    @property
+    def authorizers(self) -> list:
+        """
+        Returns list of already created API Gateway Authorizers.
+        """
+        try:
+            return self._api_client.get_authorizers(limit=50,
+                                                    restApiId=self.id)['items']
+        except self._api_client.exceptions.NotFoundException:
+            return []
+
+    def put_method(self, method: dict, method_response: bool = True) -> None:
+        """
+        Add method to existing resource.
+        """
+        # Put method to resource
+        self._api_client.put_method(**method)
+        if method_response:
+            # Remove unnecessary keys
+            allowed_keys = ['restApiId', 'resourceId', 'httpMethod']
+            for key in method.keys():
+                if key not in allowed_keys:
+                    del method[key]
+            method['statusCode'] = '200'
+            # Put method response
+            self._api_client.put_method_response(**method)
+
     def get_root_resource_id(self) -> str:
         """
         Returns parent id (root resource - path '/').
@@ -144,17 +171,6 @@ class ApiGateway:
         policy.add_statement(policy_statement)
         return policy.get_json()
 
-    def add_authorizer(self, name: str, provider_arns: List[str], auth_type: str = 'COGNITO_USER_POOLS') -> None:
-        """
-        Creates API Gateway Authorizer resource and associates it with API Gateway.
-        """
-        auth = ApiGatewayAuthorizer(name=name,
-                                    api_id=self.id,
-                                    provider_arns=provider_arns,
-                                    auth_type=auth_type)
-        auth.create_resource()
-        self.authorizers.append(auth)
-
     def delete_authorizers(self):
         """
         Deletes all API Gateway Authorizer resources associated with API.
@@ -175,10 +191,10 @@ class ApiGatewayAuthorizer:
     """
     Class represents API Gateway Authorizer resource.
     """
-    def __init__(self, name: str, api_id: str, provider_arns: List[str], auth_type: str) -> None:
+    def __init__(self, name: str, api_id: str, providers: List[CognitoUserPool], auth_type: str) -> None:
         self.api_id = api_id
         self.name = name
-        self.provider_arns = provider_arns
+        self.providers = providers
         self.auth_type = auth_type
         self._auth_client = boto3.client('apigateway')
 
@@ -191,7 +207,7 @@ class ApiGatewayAuthorizer:
                 restApiId=self.api_id,
                 name=self.name,
                 type=self.auth_type,
-                providerARNs=self.provider_arns,
+                providerARNs=[provider.arn for provider in self.providers],
                 identitySource='method.request.header.Authorization',
             )
             print(f'The API Gateway Authorizer "{self.name}" created')
@@ -256,19 +272,91 @@ class ApiGatewayAuthorizer:
         print(f'The API Gateway Authorizer "{self.name}" does not exist')
 
 
+@dataclass
+class ApiMethod:
+    """
+    Class represents API Gateway HTTP method.
+    """
+    http_method: str
+    api_id: str
+    resource_id: str
+    authorizer: Union[None, ApiGatewayAuthorizer] = None
+
+    @property
+    def data(self) -> dict:
+        """
+        Returns properly prepared HTTP method statement for boto3 usage.
+        """
+        method_data = {
+            'restApiId': self.api_id,
+            'resourceId': self.resource_id,
+            'httpMethod': self.http_method
+        }
+        if self.authorizer:
+            method_data['authorizationType'] = self.authorizer.auth_type
+            method_data['authorizerId'] = self.authorizer.id
+            # TODO: change below!!!
+            resource_srv = self.authorizer.providers[0].resource_servers[0]
+            resource_srv_scopes = resource_srv['Scopes']
+            resource_srv_identifier = resource_srv['Identifier']
+            method_data['authorizationScopes'] = [f'{resource_srv_identifier}/{scope["ScopeName"]}'for scope in resource_srv_scopes]
+        else:
+            method_data['authorizationType'] = 'NONE'
+        return method_data
+
+
+class ApiResources:
+    """
+    Class represents all API Gateway related resources used in verus-notification project.
+    """
+    def __init__(self, api_name: str, lambda_arn: str, user_pool: Union[CognitoUserPool, None] = None):
+        self.api_name = api_name
+        self.lambda_arn = lambda_arn
+        self.api = ApiGateway(name=api_name, lambda_arn=lambda_arn)
+        if user_pool:
+            self.authorizer = ApiGatewayAuthorizer(name='VerusApiAuthBoto3',
+                                                   api_id=self.api.id,
+                                                   providers=[user_pool],
+                                                   auth_type='COGNITO_USER_POOLS')
+
+    def create(self):
+        pass
+
+    def delete(self):
+        pass
+
+
 def main() -> None:
     """
     Main function - example of use
     """
     # Add existed Lambda ARN
-    lambda_arn = ''
-    user_pool = CognitoUserPool(name='UserPool4Tests')
-    user_pool.create_resource()
+    lambda_arn = 'arn:aws:lambda:eu-west-1:390700395495:function:my-function'
+
+    scopes = [
+        {
+            'name': 'api-read',
+            'description': 'Read access to the API'
+        }
+    ]
+    cognito_resources = CognitoResources(user_pool_name='UserPool4Tests',
+                                         resource_server_scopes=scopes,
+                                         pool_domain='verus-test-12345',
+                                         name_prefix='verus-api')
+
     api = ApiGateway(name='ApiGateway4Tests', lambda_arn=lambda_arn)
-    api.add_authorizer(name='Authorizer4Tests', provider_arns=[user_pool.arn])
+    authorizer = ApiGatewayAuthorizer(name='Authorizer4Tests',
+                                      api_id=api.id,
+                                      providers=[cognito_resources.user_pool],
+                                      auth_type='COGNITO_USER_POOLS')
+    authorizer.create_resource()
+
     # Delete resources
+    authorizer.delete_resource()
     api.delete_api()
-    user_pool.delete_resource()
+    cognito_resources.delete()
+    # method = ApiMethod(http_method='GET', api_id=api.id, resource_id='12345', authorizer=authorizer)
+    # print(method.data)
 
 
 if __name__ == '__main__':

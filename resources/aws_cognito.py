@@ -76,7 +76,18 @@ class CognitoUserPool:
         except KeyError:
             return ''
 
-    def delete_resource(self):
+    @property
+    def resource_servers(self) -> list:
+        """
+        Returns list of resource_servers associated with Cognito user pools.
+        """
+        try:
+            return self._cognito_client.list_resource_servers(UserPoolId=self.id,
+                                                              MaxResults=50)['ResourceServers']
+        except self._cognito_client.exceptions.ResourceNotFoundException:
+            return []
+
+    def delete_resource(self) -> None:
         """
         Deletes Cognito user pool in AWS cloud.
         """
