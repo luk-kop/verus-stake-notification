@@ -5,6 +5,8 @@ from dotenv import load_dotenv, set_key
 
 from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, DynamoDb
 from resources.aws_api_gateway import ApiGateway
+from resources.aws_cognito import CognitoResources
+from terraform_resources import get_env_path
 
 
 class VerusStakeNotification:
@@ -13,19 +15,31 @@ class VerusStakeNotification:
     """
     def __init__(self) -> None:
         # Deploy SNS topic
-        self.topic = SnsTopic(name='verus-topic')
+        self.topic = SnsTopic(name='verus-topic-boto3')
         # Deploy DynamoDB
-        self.dynamodb = DynamoDb(name='VerusStakes')
+        self.dynamodb = DynamoDb(name='verus-stakes-db-boto3')
         # Deploy IAM Role for Lambda
-        self.iam_role = IamRoleLambda(name='verus-lambda-to-sns',
+        self.iam_role = IamRoleLambda(name='verus-lambda-to-sns-boto3',
                                       topic_arn=self.topic.arn,
                                       dynamodb_arn=self.dynamodb.arn)
         # Deploy Lambda function
-        self.lambda_function = LambdaFunction(name='verus-lambda-func',
+        self.lambda_function = LambdaFunction(name='verus-lambda-func-boto3',
                                               role_arn=self.iam_role.arn,
                                               topic_arn=self.topic.arn)
+        # Deploy Cognito
+        scopes = [
+            {
+                'name': 'api-read',
+                'description': 'Read access to the API'
+            }
+        ]
+        self.cognito = CognitoResources(user_pool_name='vrsc-notification-pool-boto3',
+                                        resource_server_scopes=scopes,
+                                        pool_domain='verus-vrsc-boto3',
+                                        name_prefix='verus-api-resource-server')
         # Deploy API Gateway
-        self.api = ApiGateway(name='verus-api-gateway', lambda_arn=self.lambda_function.arn)
+        self.api = ApiGateway(name='verus-api-gateway-boto3', lambda_arn=self.lambda_function.arn)
+        self.api.add_authorizer(name='VerusApiAuthBoto3', provider_arns=[self.cognito.user_pool.arn])
         # Grants API Gateway permission to use Lambda function
         self.lambda_function.add_permission(source_arn=self.api.source_arn)
         self.url = self.api.url
@@ -44,6 +58,7 @@ class VerusStakeNotification:
         self.dynamodb.delete_table()
         self.lambda_function.delete_function()
         self.api.delete_api()
+        self.cognito.delete()
         self.iam_role.delete_role()
 
 
@@ -68,8 +83,9 @@ def destroy_resources_wrapper() -> None:
 
 
 if __name__ == '__main__':
+    env_path = get_env_path()
     # Get environment variables from .env file
-    load_dotenv()
+    load_dotenv(env_path)
     # Create parser
     parser = argparse.ArgumentParser(
         description='The script deploys/removes AWS resources for verus-stake-notification project'

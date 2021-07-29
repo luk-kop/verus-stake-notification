@@ -2,7 +2,7 @@ import boto3
 from typing import List
 
 from resources.aws_policy_document import PolicyStatement, PolicyDocumentCustom
-from aws_cognito import CognitoUserPool
+from resources.aws_cognito import CognitoUserPool
 
 
 class ApiGateway:

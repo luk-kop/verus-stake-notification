@@ -21,6 +21,9 @@ class CognitoUserPool:
                 AdminCreateUserConfig={
                     'AllowAdminCreateUserOnly': True
                 },
+                UserPoolTags={
+                    'Project': 'verus-notification'
+                }
             )
             print(f'The Cognito "{self.name}" user pool created.')
             return
