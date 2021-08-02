@@ -136,12 +136,15 @@ class ApiGateway:
         policy.add_statement(policy_statement)
         return policy.get_json()
 
-    def delete_api(self):
+    def delete_resource(self):
         """
         Deletes API Gateway with all associated API Gateway resources.
         """
-        self._api_client.delete_rest_api(restApiId=self.id)
-        print(f'The API Gateway {self.name} has been deleted')
+        if self._check_exist():
+            self._api_client.delete_rest_api(restApiId=self.id)
+            print(f'The API Gateway {self.name} has been deleted')
+            return
+        print(f'The API Gateway "{self.name}" does not exist')
 
     def deploy(self, stage_name: str) -> None:
         """
@@ -408,21 +411,70 @@ class ApiResources:
     """
     Class represents all API Gateway related resources used in verus-notification project.
     """
-    def __init__(self, api_name: str, lambda_arn: str, user_pool: Union[CognitoUserPool, None] = None) -> None:
+    def __init__(self, api_name: str, lambda_arn: str, http_methods: list, stage_name: str,
+                 user_pool: Union[CognitoUserPool, None] = None) -> None:
         self.api_name = api_name
         self.lambda_arn = lambda_arn
+        self.user_pool = user_pool
+        self.http_methods = http_methods
+        self.stage_name = stage_name
+        self.authorizer = None
+        # API Gateway instantiation
         self.api = ApiGateway(name=api_name, lambda_arn=lambda_arn)
+        self.api.create_resource()
+        # API Gateway Resource instantiation
+        self.api_resource = ApiGatewayResource(api_id=self.api.id,
+                                               parent_id=self.api.root_resource_id,
+                                               path_part='stake')
+        self.api_resource.create_resource()
         if user_pool:
+            # API Gateway Authorizer instantiation
             self.authorizer = ApiGatewayAuthorizer(name='VerusApiAuthBoto3',
                                                    api_id=self.api.id,
                                                    providers=[user_pool],
                                                    auth_type='COGNITO_USER_POOLS')
+            self.authorizer.create_resource()
+        self.add_http_methods()
+        # Deploy API Gateway
+        self.api.deploy(stage_name=stage_name)
+
+    @property
+    def invoke_url(self):
+        """
+        Returns API Gateway invoke URL.
+        """
+        return self.api.get_url(self.stage_name)
+
+    def add_http_methods(self):
+        """
+        Adds HTTP methods and integrations to API Gateway Resource.
+        """
+        for method in self.http_methods:
+            method_get = ApiMethod(http_method=method,
+                                   api_id=self.api.id,
+                                   resource_id=self.api_resource.id,
+                                   authorizer=self.authorizer)
+            self.api_resource.put_method(api_method=method_get)
+            self.api_resource.put_integration(api_method=method_get, lambda_arn=self.lambda_arn)
+            self.api_resource.put_method_response(api_method=method_get)
+            self.api_resource.put_integration_response(api_method=method_get)
 
     def create(self):
-        pass
+        """
+        Creates all API Gateway related resources. Method can be used to recreate API Gateway resources after deletion.
+        """
+        self.api.create_resource()
+        if self.user_pool:
+            self.authorizer.create_resource()
+        self.add_http_methods()
+        # Deploy API Gateway
+        self.api.deploy(stage_name=self.stage_name)
 
     def delete(self):
-        pass
+        """
+        Deletes all API Gateway related resources.
+        """
+        self.api.delete_resource()
 
 
 def main() -> None:
@@ -443,29 +495,14 @@ def main() -> None:
                                          pool_domain='verus-test-12345',
                                          name_prefix='verus-api')
 
-    api = ApiGateway(name='ApiGateway4Tests', lambda_arn=lambda_arn)
-    api.create_resource()
-    authorizer = ApiGatewayAuthorizer(name='Authorizer4Tests',
-                                      api_id=api.id,
-                                      providers=[cognito_resources.user_pool],
-                                      auth_type='COGNITO_USER_POOLS')
-    authorizer.create_resource()
-    api_resource = ApiGatewayResource(api_id=api.id, parent_id=api.root_resource_id, path_part='stake')
-    api_resource.create_resource()
-    method_get = ApiMethod(http_method='GET',
-                           api_id=api.id,
-                           resource_id=api_resource.id,
-                           authorizer=authorizer)
-    api_resource.put_method(api_method=method_get)
-    api_resource.put_integration(api_method=method_get, lambda_arn=lambda_arn)
-    api_resource.put_method_response(api_method=method_get)
-    api_resource.put_integration_response(api_method=method_get)
-
-    stage_name = 'vrsc'
-    api.deploy(stage_name=stage_name)
-    print(api.get_url(stage_name))
+    resources = ApiResources(api_name='ApiGateway4Tests',
+                             lambda_arn=lambda_arn,
+                             http_methods=['GET'],
+                             stage_name='vrsc',
+                             user_pool=cognito_resources.user_pool)
+    print(resources.invoke_url)
     # Delete all resources
-    api.delete_api()
+    resources.delete()
     cognito_resources.delete()
 
 
