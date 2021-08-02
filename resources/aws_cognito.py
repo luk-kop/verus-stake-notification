@@ -257,6 +257,18 @@ class CognitoUserPoolClient:
                 return client['ClientId']
         return ''
 
+    @property
+    def secret(self) -> str:
+        """
+        Returns user pool client secret.
+        """
+        if self._check_exist():
+            user_pool_client = self._cognito_client.describe_user_pool_client(UserPoolId=self.user_pool_id,
+                                                                              ClientId=self.id)
+            return user_pool_client['UserPoolClient']['ClientSecret']
+        else:
+            return ''
+
     def _check_exist(self) -> bool:
         """
         Checks if Cognito user pool client resource with specified name already exist.
@@ -334,6 +346,16 @@ class CognitoResources:
         self.domain.user_pool_id = new_id
         self.user_pool_client.user_pool_id = new_id
 
+    @property
+    def client_credentials(self) -> dict:
+        """
+        Returns Cognito User Pool Client credentials (Client ID & Client SECRET).
+        """
+        return {
+            'client_id': self.user_pool_client.id,
+            'client_secret': self.user_pool_client.secret
+        }
+
 
 def main() -> None:
     """
@@ -349,6 +371,7 @@ def main() -> None:
                                  resource_server_scopes=scopes,
                                  pool_domain='verus-test-12345',
                                  name_prefix='verus-api')
+    print(resources.client_credentials)
     resources.delete()
 
 
