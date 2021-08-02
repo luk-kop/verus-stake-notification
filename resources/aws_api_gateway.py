@@ -51,16 +51,28 @@ class ApiGateway:
                 return api['id']
         return ''
 
-    @property
-    def url(self):
+    def get_url(self, stage_name: str):
         """
         Returns API Gateway URL.
         """
-        for api in self._api_gateways:
-            if api['name'] == self.name:
-                return f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.' \
-                       f'amazonaws.com/vrsc/{self.api_endpoint}'
+        if self._check_stage_exist(name=stage_name):
+            for api in self._api_gateways:
+                if api['name'] == self.name:
+                    return f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.' \
+                           f'amazonaws.com/{stage_name}/{self.api_endpoint}'
+        print(f'Stage name {stage_name} does not exist')
         return ''
+
+    def _check_stage_exist(self, name):
+        """
+        Checks if stage with specified name already exist.
+        """
+        try:
+            self._api_client.get_stage(restApiId=self.id,
+                                       stageName=name)
+            return True
+        except self._api_client.exceptions.NotFoundException:
+            return False
 
     @property
     def source_arn(self):
@@ -130,6 +142,16 @@ class ApiGateway:
         """
         self._api_client.delete_rest_api(restApiId=self.id)
         print(f'The API Gateway {self.name} has been deleted')
+
+    def deploy(self, stage_name: str) -> None:
+        """
+        Creates API Gateway deployment.
+        """
+        if not self._check_stage_exist(name=stage_name):
+            self._api_client.create_deployment(restApiId=self.id,
+                                               stageName=stage_name)
+            return
+        print(f'Stage name "{stage_name}" already exists')
 
 
 class ApiGatewayAuthorizer:
@@ -439,6 +461,9 @@ def main() -> None:
     api_resource.put_method_response(api_method=method_get)
     api_resource.put_integration_response(api_method=method_get)
 
+    stage_name = 'vrsc'
+    api.deploy(stage_name=stage_name)
+    print(api.get_url(stage_name))
     # Delete all resources
     api.delete_api()
     cognito_resources.delete()
