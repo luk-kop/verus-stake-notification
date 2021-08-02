@@ -14,23 +14,18 @@ class ApiGateway:
     def __init__(self, name: str, lambda_arn: str):
         self.name = name
         self.lambda_arn = lambda_arn
-        self.id = None
-        self.source_arn = None
-        self.url = None
         self.api_endpoint = 'stake'
         self._api_client = boto3.client('apigateway')
         self._account_id = boto3.client('sts').get_caller_identity()['Account']
-        self.create_api()
 
-    def create_api(self) -> None:
+    def create_resource(self) -> None:
         """
-        Creates API Gateway resource. Method is called whenever a new instance of ApiGateway is created.
-        Method can also be used to recreate API Gateway resource after deleting it with 'delete_api' method.
+        Creates Cognito user pool resource in AWS cloud.
         """
-        if not self.check_api_exist():
+        if not self._check_exist():
             resource_policy = self.create_policy()
 
-            api = self._api_client.create_rest_api(
+            self._api_client.create_rest_api(
                 name=self.name,
                 description='Invoke Lambda function to publish a msg to SNS topic when new stake appears in Verus wallet.',
                 apiKeySource='HEADER',
@@ -42,81 +37,54 @@ class ApiGateway:
                     'Project': 'verus-notification'
                 },
             )
-            self.id = api['id']
-            # Create resource 'stake'
-            # Get parent id - root resource (path '/')
-            root_id = self.get_root_resource_id()
-            resource = self._api_client.create_resource(
-                restApiId=self.id,
-                parentId=root_id,
-                pathPart=self.api_endpoint
-            )
-            resource_id = resource['id']
-            # Put method to resource
-            self._api_client.put_method(
-                restApiId=self.id,
-                resourceId=resource_id,
-                httpMethod='GET',
-                authorizationType='NONE'
-            )
-            # Put method response
-            self._api_client.put_method_response(
-                restApiId=self.id,
-                resourceId=resource_id,
-                httpMethod='GET',
-                statusCode='200',
-            )
-            # Put method integration
-            lambda_uri = f'arn:aws:apigateway:{self._api_client.meta.region_name}:' \
-                         f'lambda:path/2015-03-31/functions/{self.lambda_arn}/invocations'
-            # NOTE: For Lambda integrations, you must use the HTTP method of POST for the integration request
-            # (integrationHttpMethod) or this will not work
-            self._api_client.put_integration(
-                restApiId=self.id,
-                resourceId=resource_id,
-                httpMethod='GET',
-                type='AWS',
-                integrationHttpMethod='POST',
-                uri=lambda_uri,
-                connectionType='INTERNET',
-            )
-            # Put method integration response
-            self._api_client.put_integration_response(
-                restApiId=self.id,
-                resourceId=resource_id,
-                httpMethod='GET',
-                statusCode='200',
-                selectionPattern='',
-                contentHandling='CONVERT_TO_TEXT'
-            )
-            self.source_arn = f'arn:aws:execute-api:{self._api_client.meta.region_name}:' \
-                              f'{self._account_id}:{self.id}/*/GET/{self.api_endpoint}'
-            # Create deployment
-            self._api_client.create_deployment(
-                restApiId=self.id,
-                stageName='vrsc'
-            )
-            # Create API URL
-            self.url = f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.amazonaws.com' \
-                       f'/vrsc/{self.api_endpoint}'
-            print(f'API Gateway {self.name} created')
+            print(f'The API Gateway "{self.name}" created.')
+            return
+        print(f'The API Gateway "{self.name}" exists. Using it.')
 
-    def check_api_exist(self) -> bool:
+    @property
+    def id(self):
         """
-        Checks whether a API with the given name already exists.
-        If API already exists - assign existed API id to 'id' attribute.
+        Returns API Gateway id.
         """
-        apis_list = self._api_client.get_rest_apis()['items']
-        for api in apis_list:
+        for api in self._api_gateways:
             if api['name'] == self.name:
-                print(f'API Gateway {self.name} exist. Using it.')
-                self.id = api['id']
-                self.url = f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.' \
-                           f'amazonaws.com/vrsc/{self.api_endpoint}'
-                self.source_arn = f'arn:aws:execute-api:{self._api_client.meta.region_name}:' \
-                                  f'{self._account_id}:{self.id}/*/GET/{self.api_endpoint}'
-                return True
-        return False
+                return api['id']
+        return ''
+
+    @property
+    def url(self):
+        """
+        Returns API Gateway URL.
+        """
+        for api in self._api_gateways:
+            if api['name'] == self.name:
+                return f'https://{self.id}.execute-api.{self._api_client.meta.region_name}.' \
+                       f'amazonaws.com/vrsc/{self.api_endpoint}'
+        return ''
+
+    @property
+    def source_arn(self):
+        """
+        Returns API Gateway ARN.
+        """
+        for api in self._api_gateways:
+            if api['name'] == self.name:
+                return f'arn:aws:execute-api:{self._api_client.meta.region_name}:' \
+                       f'{self._account_id}:{self.id}/*/GET/{self.api_endpoint}'
+        return ''
+
+    def _check_exist(self):
+        """
+        Checks if API Gateway resource with specified name already exist.
+        """
+        return True if self.id else False
+
+    @property
+    def _api_gateways(self):
+        """
+        Returns list of already created API Gateways.
+        """
+        return self._api_client.get_rest_apis()['items']
 
     @property
     def authorizers(self) -> list:
@@ -129,23 +97,8 @@ class ApiGateway:
         except self._api_client.exceptions.NotFoundException:
             return []
 
-    def put_method(self, method: dict, method_response: bool = True) -> None:
-        """
-        Add method to existing resource.
-        """
-        # Put method to resource
-        self._api_client.put_method(**method)
-        if method_response:
-            # Remove unnecessary keys
-            allowed_keys = ['restApiId', 'resourceId', 'httpMethod']
-            for key in method.keys():
-                if key not in allowed_keys:
-                    del method[key]
-            method['statusCode'] = '200'
-            # Put method response
-            self._api_client.put_method_response(**method)
-
-    def get_root_resource_id(self) -> str:
+    @property
+    def root_resource_id(self) -> str:
         """
         Returns parent id (root resource - path '/').
         """
@@ -171,18 +124,10 @@ class ApiGateway:
         policy.add_statement(policy_statement)
         return policy.get_json()
 
-    def delete_authorizers(self):
-        """
-        Deletes all API Gateway Authorizer resources associated with API.
-        """
-        for auth in self.authorizers:
-            auth.delete_resource()
-
     def delete_api(self):
         """
-        Deletes API Gateway.
+        Deletes API Gateway with all associated API Gateway resources.
         """
-        self.delete_authorizers()
         self._api_client.delete_rest_api(restApiId=self.id)
         print(f'The API Gateway {self.name} has been deleted')
 
@@ -265,9 +210,12 @@ class ApiGatewayAuthorizer:
         Deletes API Gateway Authorizer in AWS cloud.
         """
         if self._check_exist():
-            self._auth_client.delete_authorizer(restApiId=self.api_id,
-                                                authorizerId=self.id)
-            print(f'The API Gateway Authorizer "{self.name}" has been deleted')
+            try:
+                self._auth_client.delete_authorizer(restApiId=self.api_id,
+                                                    authorizerId=self.id)
+                print(f'The API Gateway Authorizer "{self.name}" has been deleted')
+            except self._auth_client.exceptions.ConflictException as err:
+                print(err.response['Error']['Message'])
             return
         print(f'The API Gateway Authorizer "{self.name}" does not exist')
 
@@ -305,11 +253,140 @@ class ApiMethod:
         return method_data
 
 
+class ApiGatewayResource:
+    """
+    Class represents API Gateway Resource resource.
+    """
+    def __init__(self, api_id: str, parent_id: str, path_part: str) -> None:
+        self.api_id = api_id
+        self.parent_id = parent_id
+        self.path_part = path_part
+        self._api_resource_client = boto3.client('apigateway')
+
+    def create_resource(self) -> None:
+        """
+        Creates API Gateway Resource resource in AWS cloud.
+        """
+        if not self._check_exist():
+            self._api_resource_client.create_resource(
+                restApiId=self.api_id,
+                parentId=self.parent_id,
+                pathPart=self.path_part
+            )
+            print(f'The API Gateway resource "{self.path_part}" created')
+            return
+        print(f'The API Gateway resource "{self.path_part}" exists. Using it.')
+
+    def _check_exist(self) -> bool:
+        """
+        Checks if API Gateway resource with specified path already exist.
+        """
+        return True if self.id else False
+
+    @property
+    def _api_resources(self) -> list:
+        """
+        Returns list of already created API Gateway resources.
+        """
+        return self._api_resource_client.get_resources(restApiId=self.api_id,
+                                                       limit=60)['items']
+
+    @property
+    def id(self) -> str:
+        """
+        Returns user pool id.
+        """
+        for resource in self._api_resources:
+            path_part = resource.get('pathPart')
+            if path_part == self.path_part:
+                return resource['id']
+        return ''
+
+    @property
+    def full_path(self) -> str:
+        """
+        Returns full path for API Gateway resource.
+        """
+        if self._check_exist():
+            resource = self._api_resource_client.client.get_resource(
+                restApiId=self.api_id,
+                resourceId=self.id,
+            )
+            return resource['path']
+        return ''
+
+    def put_method(self, api_method: ApiMethod) -> None:
+        """
+        Adds a method to existing resource.
+        """
+        try:
+            self._api_resource_client.put_method(**api_method.data)
+        except self._api_resource_client.exceptions.ConflictException:
+            print('Method already exists for this resource')
+
+    def put_integration(self, api_method, lambda_arn, integration_type: str = 'AWS') -> None:
+        """
+        Sets up a method' integration.
+        """
+        # NOTE: For Lambda integrations, you must use the HTTP method of POST for the integration request
+        # (integrationHttpMethod) or this will not work
+        lambda_uri = f'arn:aws:apigateway:{self._api_resource_client.meta.region_name}:' \
+                     f'lambda:path/2015-03-31/functions/{lambda_arn}/invocations'
+        self._api_resource_client.put_integration(restApiId=self.api_id,
+                                                  resourceId=self.id,
+                                                  httpMethod=api_method.http_method,
+                                                  type=integration_type,
+                                                  integrationHttpMethod='POST',
+                                                  uri=lambda_uri,
+                                                  connectionType='INTERNET'
+                                                  )
+
+    def put_method_response(self, api_method: ApiMethod) -> None:
+        """
+        Adds a method response to an existing existing method resource.
+        """
+        api_method = api_method.data
+        # Remove unnecessary keys
+        allowed_keys = ['restApiId', 'resourceId', 'httpMethod']
+        method_response = {key: value for (key, value) in api_method.items() if key in allowed_keys}
+        method_response['statusCode'] = '200'
+        # Put method response
+        try:
+            self._api_resource_client.put_method_response(**method_response)
+        except self._api_resource_client.exceptions.ConflictException:
+            print('Response already exists for this resource')
+
+    def put_integration_response(self, api_method: ApiMethod) -> None:
+        """
+        Sets up a method' integration response.
+        """
+        self._api_resource_client.put_integration_response(restApiId=self.api_id,
+                                                           resourceId=self.id,
+                                                           httpMethod=api_method.data['httpMethod'],
+                                                           statusCode='200',
+                                                           selectionPattern='',
+                                                           contentHandling='CONVERT_TO_TEXT')
+
+    def delete_resource(self) -> None:
+        """
+        Deletes API Gateway resource in AWS cloud.
+        """
+        if self._check_exist():
+            try:
+                self._api_resource_client.delete_resource(restApiId=self.api_id,
+                                                          resourceId=self.id)
+                print(f'The API Gateway resource "{self.path_part}" has been deleted')
+            except self._api_resource_client.exceptions.InvalidParameterException as err:
+                print(err.response['Error']['Message'])
+            return
+        print(f'The API Gateway resource "{self.path_part}" does not exist')
+
+
 class ApiResources:
     """
     Class represents all API Gateway related resources used in verus-notification project.
     """
-    def __init__(self, api_name: str, lambda_arn: str, user_pool: Union[CognitoUserPool, None] = None):
+    def __init__(self, api_name: str, lambda_arn: str, user_pool: Union[CognitoUserPool, None] = None) -> None:
         self.api_name = api_name
         self.lambda_arn = lambda_arn
         self.api = ApiGateway(name=api_name, lambda_arn=lambda_arn)
@@ -331,7 +408,7 @@ def main() -> None:
     Main function - example of use
     """
     # Add existed Lambda ARN
-    lambda_arn = 'arn:aws:lambda:eu-west-1:390700395495:function:my-function'
+    lambda_arn = ''
 
     scopes = [
         {
@@ -345,18 +422,26 @@ def main() -> None:
                                          name_prefix='verus-api')
 
     api = ApiGateway(name='ApiGateway4Tests', lambda_arn=lambda_arn)
+    api.create_resource()
     authorizer = ApiGatewayAuthorizer(name='Authorizer4Tests',
                                       api_id=api.id,
                                       providers=[cognito_resources.user_pool],
                                       auth_type='COGNITO_USER_POOLS')
     authorizer.create_resource()
+    api_resource = ApiGatewayResource(api_id=api.id, parent_id=api.root_resource_id, path_part='stake')
+    api_resource.create_resource()
+    method_get = ApiMethod(http_method='GET',
+                           api_id=api.id,
+                           resource_id=api_resource.id,
+                           authorizer=authorizer)
+    api_resource.put_method(api_method=method_get)
+    api_resource.put_integration(api_method=method_get, lambda_arn=lambda_arn)
+    api_resource.put_method_response(api_method=method_get)
+    api_resource.put_integration_response(api_method=method_get)
 
-    # Delete resources
-    authorizer.delete_resource()
+    # Delete all resources
     api.delete_api()
     cognito_resources.delete()
-    # method = ApiMethod(http_method='GET', api_id=api.id, resource_id='12345', authorizer=authorizer)
-    # print(method.data)
 
 
 if __name__ == '__main__':

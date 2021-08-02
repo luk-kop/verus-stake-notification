@@ -7,7 +7,7 @@ class CognitoUserPool:
     """
     Class represents Cognito user pool resource.
     """
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
         self._cognito_client = boto3.client('cognito-idp')
 
@@ -30,7 +30,7 @@ class CognitoUserPool:
         print(f'The Cognito "{self.name}" user pool exists. Using it.')
 
     @property
-    def id(self):
+    def id(self) -> str:
         """
         Returns user pool id.
         """
@@ -282,7 +282,8 @@ class CognitoResources:
     Class represents all Cognito related resources used in verus-notification project.
     During object initialization, new AWS resources are created or existing resources are used.
     """
-    def __init__(self, user_pool_name: str, resource_server_scopes: List[Dict], pool_domain: str, name_prefix: str):
+    def __init__(self, user_pool_name: str, resource_server_scopes: List[Dict], pool_domain: str,
+                 name_prefix: str) -> None:
         self.name_prefix = name_prefix
         self.scopes = resource_server_scopes
         self.pool_domain = pool_domain
