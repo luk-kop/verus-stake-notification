@@ -43,9 +43,16 @@ get_access_token() {
     --data-urlencode 'grant_type=client_credentials' \
     --data-urlencode "scope=$(echo $COGNITO_OAUTH_LIST_OF_SCOPES)" \
     $COGNITO_TOKEN_URL)
+
+  # Check whether "access_token" key is in API response
+  if [[ ! $response == *"access_token"* ]]; then
+    return 1
+  fi
+
   #  local access_token="$(echo $response | jq --raw-output '.access_token')"
   local access_token="$(echo $response | python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')"
   echo $access_token
+#  return 0
 }
 
 call_api() {
@@ -55,6 +62,16 @@ call_api() {
   curl --silent --header "Authorization: $(echo $token)" $NOTIFICATION_API_URL | python3 -m json.tool
   echo
 }
+
+check_exit_code() {
+  local status=$1
+  if [[ $status != 0 ]]; then
+    echo "Sorry, but something went wrong with retrieving the access token... :("
+    echo
+    exit 1
+  fi
+}
+
 
 echo '
    ________                                         __  _
@@ -72,12 +89,14 @@ echo
 case $user_choice in
 1)
   token=$(get_access_token)
+  check_exit_code $?
   echo "Cognito Access Token:"
   echo $token
   echo
   ;;
 2)
   token=$(get_access_token)
+  check_exit_code $?
   echo "Cognito Access Token:"
   echo $token
   call_api $token
