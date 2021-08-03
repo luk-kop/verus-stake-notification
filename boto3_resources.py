@@ -4,7 +4,7 @@ import argparse
 from dotenv import load_dotenv, set_key
 
 from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, DynamoDb
-from resources.aws_api_gateway import ApiGateway
+from resources.aws_api_gateway import ApiResources
 from resources.aws_cognito import CognitoResources
 from terraform_resources import get_env_path
 
@@ -15,17 +15,18 @@ class VerusStakeNotification:
     """
     def __init__(self) -> None:
         # Deploy SNS topic
-        self.topic = SnsTopic(name='verus-topic-boto3')
+        self.topic = SnsTopic(name='vrsc-topic-boto3')
         # Deploy DynamoDB
-        self.dynamodb = DynamoDb(name='verus-stakes-db-boto3')
+        self.dynamodb = DynamoDb(name='vrsc-stakes-db-boto3')
         # Deploy IAM Role for Lambda
-        self.iam_role = IamRoleLambda(name='verus-lambda-to-sns-boto3',
+        self.iam_role = IamRoleLambda(name='vrsc-lambda-to-sns-boto3',
                                       topic_arn=self.topic.arn,
                                       dynamodb_arn=self.dynamodb.arn)
         # Deploy Lambda function
-        self.lambda_function = LambdaFunction(name='verus-lambda-func-boto3',
+        self.lambda_function = LambdaFunction(name='vrsc-lambda-func-boto3',
                                               role_arn=self.iam_role.arn,
-                                              topic_arn=self.topic.arn)
+                                              topic_arn=self.topic.arn,
+                                              dynamodb_table_name=self.dynamodb.name)
         # Deploy Cognito
         scopes = [
             {
@@ -35,14 +36,20 @@ class VerusStakeNotification:
         ]
         self.cognito = CognitoResources(user_pool_name='vrsc-notification-pool-boto3',
                                         resource_server_scopes=scopes,
-                                        pool_domain='verus-vrsc-boto3',
-                                        name_prefix='verus-api-resource-server')
+                                        pool_domain='vrsc-creds-boto3',
+                                        name_prefix='vrsc')
         # Deploy API Gateway
-        self.api = ApiGateway(name='verus-api-gateway-boto3', lambda_arn=self.lambda_function.arn)
-        self.api.add_authorizer(name='VerusApiAuthBoto3', provider_arns=[self.cognito.user_pool.arn])
+        self.api = ApiResources(api_name='vrsc-api-gateway-boto3',
+                                lambda_arn=self.lambda_function.arn,
+                                http_methods=['GET'],
+                                stage_name='vrsc',
+                                user_pool=self.cognito.user_pool)
         # Grants API Gateway permission to use Lambda function
-        self.lambda_function.add_permission(source_arn=self.api.source_arn)
-        self.url = self.api.url
+        self.lambda_function.add_permission(source_arn=self.api.arn)
+        self.url = self.api.invoke_url
+        self.cognito_client_credentials = self.cognito.client_credentials
+        self.cognito_token_url = self.cognito.token_url
+        self.scopes_list = self.cognito.scopes_list
 
     def subscribe_email(self, email: str) -> None:
         """
@@ -57,7 +64,7 @@ class VerusStakeNotification:
         self.topic.delete_topic()
         self.dynamodb.delete_table()
         self.lambda_function.delete_function()
-        self.api.delete_api()
+        self.api.delete()
         self.cognito.delete()
         self.iam_role.delete_role()
 
@@ -69,9 +76,18 @@ def build_resources_wrapper() -> None:
     email_to_notify = os.getenv('EMAIL_TO_NOTIFY')
     verus_resources = VerusStakeNotification()
     verus_resources.subscribe_email(email=email_to_notify)
-    # Write API URL to .env file.
-    print('Store API URL to .env-api file')
-    set_key(dotenv_path='new_stake_script/.env-api', key_to_set='NOTIFICATION_API_URL', value_to_set=verus_resources.url)
+
+    data_to_store = {
+        'NOTIFICATION_API_URL': verus_resources.url,
+        'COGNITO_CLIENT_ID': verus_resources.cognito_client_credentials['client_id'],
+        'COGNITO_CLIENT_SECRET': verus_resources.cognito_client_credentials['client_secret'],
+        'COGNITO_TOKEN_URL': verus_resources.cognito_token_url,
+        'COGNITO_OAUTH_LIST_OF_SCOPES': verus_resources.scopes_list
+    }
+    # Write relevant resource data to .env-api file.
+    print('Store resources data to .env-api file')
+    for data_key, data_value in data_to_store.items():
+        set_key(dotenv_path='new_stake_script/.env-api', key_to_set=data_key, value_to_set=data_value)
 
 
 def destroy_resources_wrapper() -> None:

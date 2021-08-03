@@ -47,7 +47,6 @@ Other prerequisites:
 * The `virtualenv` package already installed on the OS level.
 
 ## Build and run the application
-> **Note:** Bulding AWS infrastructure with `boto3` package is under development, at this moment it is recommended to use `Terraform` tool.
 
 The project creation process is divided into two phases:
 1. Deployment of the AWS resources (infrastructure) with `boto3` package or `Terraform` tool.
