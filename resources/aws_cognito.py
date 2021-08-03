@@ -229,6 +229,7 @@ class CognitoUserPoolClient:
                 ClientName=self.name,
                 UserPoolId=self.user_pool_id,
                 GenerateSecret=True,
+                AllowedOAuthFlowsUserPoolClient=True,
                 AllowedOAuthFlows=['client_credentials'],
                 AllowedOAuthScopes=self.scopes
             )
@@ -313,7 +314,7 @@ class CognitoResources:
         self.domain = CognitoUserPoolDomain(domain_prefix=self.pool_domain, user_pool_id=self.user_pool.id)
         self.domain.create_resource()
         # Cognito user pool client instantiation
-        self.user_pool_client = CognitoUserPoolClient(name='verus-cli-wallet',
+        self.user_pool_client = CognitoUserPoolClient(name=f'{self.name_prefix}-cli-wallet',
                                                       user_pool_id=self.user_pool.id,
                                                       scopes=self.resource_server.scope_identifiers)
         self.user_pool_client.create_resource()
@@ -366,6 +367,17 @@ class CognitoResources:
             return f'https://{self.domain.domain}.auth.{region}.amazoncognito.com/oauth2/token'
         return ''
 
+    @property
+    def scopes_list(self) -> str:
+        """
+        Returns Cognito Resource Server scopes identifiers in format 'identifier/scope_name identifier/scope_name...'.
+        """
+        scopes = self.resource_server.scope_identifiers
+        if len(scopes) == 1:
+            return scopes[0]
+        else:
+            return ' '.join(scopes)
+
 
 def main() -> None:
     """
@@ -383,6 +395,7 @@ def main() -> None:
                                  name_prefix='verus-api')
     print(resources.client_credentials)
     print(resources.token_url)
+    print(resources.scopes_list)
     resources.delete()
 
 
