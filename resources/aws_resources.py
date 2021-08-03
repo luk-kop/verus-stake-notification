@@ -334,10 +334,12 @@ class LambdaFunction:
     Class represents Lambda function resource. If a Lambda function with the specified name already exists, it is used.
     The Lambda function publish message to a specific SNS topic.
     """
-    def __init__(self, name: str, role_arn: str, topic_arn: str, function_file_name: str = 'lambda_function.py'):
+    def __init__(self, name: str, role_arn: str, topic_arn: str, dynamodb_table_name: str,
+                 function_file_name: str = 'lambda_function.py'):
         self.name = name
         self.role_arn = role_arn
         self.topic_arn = topic_arn
+        self.dynamodb_table_name = dynamodb_table_name
         self._lambda_client = boto3.client('lambda')
         self.function_file_name = function_file_name
         self.arn = None
@@ -377,7 +379,7 @@ class LambdaFunction:
                         Environment={
                             'Variables': {
                                 'TOPIC_ARN': self.topic_arn,
-                                'DYNAMODB_NAME': 'VerusStakes'
+                                'DYNAMODB_NAME': self.dynamodb_table_name
                             }
                         }
                     )
