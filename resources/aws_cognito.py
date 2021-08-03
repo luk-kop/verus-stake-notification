@@ -356,6 +356,16 @@ class CognitoResources:
             'client_secret': self.user_pool_client.secret
         }
 
+    @property
+    def token_url(self) -> str:
+        """
+        Returns Cognito token URL.
+        """
+        if self.user_pool.id:
+            region = boto3.client('cognito-idp').meta.region_name
+            return f'https://{self.domain.domain}.auth.{region}.amazoncognito.com/oauth2/token'
+        return ''
+
 
 def main() -> None:
     """
@@ -372,6 +382,7 @@ def main() -> None:
                                  pool_domain='verus-test-12345',
                                  name_prefix='verus-api')
     print(resources.client_credentials)
+    print(resources.token_url)
     resources.delete()
 
 

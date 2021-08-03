@@ -75,7 +75,7 @@ class ApiGateway:
             return False
 
     @property
-    def source_arn(self):
+    def arn(self):
         """
         Returns API Gateway ARN.
         """
@@ -444,6 +444,13 @@ class ApiResources:
         Returns API Gateway invoke URL.
         """
         return self.api.get_url(self.stage_name)
+
+    @property
+    def arn(self):
+        """
+        Returns API Gateway ARN.
+        """
+        return self.api.arn
 
     def add_http_methods(self):
         """
