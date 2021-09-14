@@ -58,8 +58,8 @@ resource "aws_iam_role" "verus_iam_role_for_lambda" {
     policy = data.aws_iam_policy_document.verus_role_inline_policy_sns.json
   }
   inline_policy {
-    name   = "verus-lambda-dynamodb-add-item-inline"
-    policy = data.aws_iam_policy_document.verus_role_inline_policy_dynamodb_add_item.json
+    name   = "verus-lambda-dynamodb-inline"
+    policy = data.aws_iam_policy_document.verus_role_inline_policy_dynamodb.json
   }
 }
 
@@ -255,11 +255,16 @@ data "aws_iam_policy_document" "verus_assume_role_policy" {
   }
 }
 
-data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb_add_item" {
+data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb" {
   statement {
-    sid       = "AddItemToVerusStakesTable"
+    sid       = "put-item-to-verus_stakes_txids_table"
     actions   = ["dynamodb:PutItem"]
     resources = [aws_dynamodb_table.verus_stakes_txids_table.arn]
+  }
+  statement {
+    sid       = "put-get-update-item-to-verus_stakes_values_table"
+    actions   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.verus_stakes_values_table.arn]
   }
 }
 
