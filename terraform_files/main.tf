@@ -75,7 +75,7 @@ resource "aws_lambda_function" "verus_lambda" {
   environment {
     variables = {
       TOPIC_ARN     = aws_sns_topic.verus_topic.arn
-      DYNAMODB_NAME = aws_dynamodb_table.verus_stakes_table.id
+      DYNAMODB_NAME = aws_dynamodb_table.verus_stakes_txids_table.id
     }
   }
   tags = var.resource_tags
@@ -203,14 +203,27 @@ resource "aws_api_gateway_rest_api_policy" "verus_api" {
 }
 
 # DynamoDB config
-resource "aws_dynamodb_table" "verus_stakes_table" {
-  name           = "verus-stakes-db-${random_id.name.hex}"
+resource "aws_dynamodb_table" "verus_stakes_txids_table" {
+  name           = "verus_stakes_txids_table-${random_id.name.hex}"
   billing_mode   = "PROVISIONED"
   read_capacity  = 1
   write_capacity = 1
-  hash_key       = "stake_id"
+  hash_key       = "tx_id"
   attribute {
-    name = "stake_id"
+    name = "tx_id"
+    type = "S"
+  }
+  tags = var.resource_tags
+}
+
+resource "aws_dynamodb_table" "verus_stakes_values_table" {
+  name           = "verus_stakes_values_table-${random_id.name.hex}"
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 1
+  write_capacity = 1
+  hash_key       = "ts_id"
+  attribute {
+    name = "ts_id"
     type = "S"
   }
   tags = var.resource_tags
@@ -246,7 +259,7 @@ data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb_add_item" {
   statement {
     sid       = "AddItemToVerusStakesTable"
     actions   = ["dynamodb:PutItem"]
-    resources = [aws_dynamodb_table.verus_stakes_table.arn]
+    resources = [aws_dynamodb_table.verus_stakes_txids_table.arn]
   }
 }
 
