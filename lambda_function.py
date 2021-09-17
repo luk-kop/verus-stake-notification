@@ -8,7 +8,7 @@ from decimal import Decimal
 
 def put_stake_txids_db(stake: dict, db_name: str) -> None:
     """
-    Add new stake item to verus_stakes_txids_table DynamoDB (list of individual stake txs)
+    Add new stake item to specified DynamoDB table (list of individual stake txs).
     """
     dynamodb = boto3.resource('dynamodb')
     stakes_table = dynamodb.Table(db_name)
@@ -16,7 +16,7 @@ def put_stake_txids_db(stake: dict, db_name: str) -> None:
         item = {
             'tx_id': stake['txid'],
             'stake_value:': Decimal(str(stake['value'])),
-            'stake_ts': stake['time']  # TODO: change to EPOC
+            'stake_ts': stake['time']
         }
         stakes_table.put_item(
             Item=item
@@ -25,27 +25,27 @@ def put_stake_txids_db(stake: dict, db_name: str) -> None:
         print(error)
 
 
-def put_stake_values_db(db_name: str, stake: dict, time_period: str) -> None:
+def put_stake_values_db(db_name: str, stake: dict, timestamp: str) -> None:
     """
-    Consolidate stakes value for specific time period.
-    Create item if not exist.
+    Add or update stakes value & count for specified timestamp (time period) in DynamoDB table.
+    Create new item if not exist.
     """
     # ts_id - timestamp id
     dynamodb = boto3.resource('dynamodb')
     db_table = dynamodb.Table(db_name)
 
-    item_to_update = get_db_item(db_name=db_name, part_key=time_period)
+    item_to_update = get_db_item(db_name=db_name, part_key=timestamp)
     if item_to_update:
         # Update item if timestamp id (ts_id) already exist in db
         updated_stake_data = {
             'stakes_value': item_to_update.get('stakes_value', 0) + stake.get('value', 0),
             'stakes_count': item_to_update.get('stakes_count', 0) + 1
         }
-        update_db_item(db_name=db_name, part_key=time_period, updated_data=updated_stake_data)
+        update_db_item(db_name=db_name, part_key=timestamp, updated_data=updated_stake_data)
     else:
         # Put new item if timestamp id (ts_id) not exist in db
         item_new = {
-            'ts_id': time_period,
+            'ts_id': timestamp,
             'stakes_value': Decimal(str(stake.get('value', 0))),
             'stakes_count': 1
         }
@@ -132,11 +132,15 @@ def sanitize_query_params(year: str, month: str) -> tuple:
     return year, month
 
 
-def get_current_time_period() -> str:
+def get_timestamp_id(year: bool = True, month: bool = True, date: datetime = datetime.utcnow()) -> str:
     """
-    Returns current time period in format '2021-01'.
+    Returns timestamp id (tp_id) in format '2021-01', '2021' or '01'.
     """
-    return datetime.utcnow().strftime("%Y-%m")
+    if not year:
+        return date.strftime('%m')
+    elif not month:
+        return date.strftime('%Y')
+    return date.strftime('%Y-%m')
 
 
 def lambda_handler(event, context) -> dict:
@@ -144,7 +148,9 @@ def lambda_handler(event, context) -> dict:
     Main function.
     """
     # Load envs
+    # Table that contains consolidated stake values for specific timestamp (time period).
     db_values_name = os.environ.get('DYNAMODB_VALUES_NAME')
+    # Table that contains list of individual stake transactions (tx) - stake tx id, stake value, stake timestamp.
     db_txid_name = os.environ.get('DYNAMODB_TXIDS_NAME')
     sns_topic_arn = os.environ.get('TOPIC_ARN')
 
@@ -170,7 +176,7 @@ def lambda_handler(event, context) -> dict:
             part_key = f'{qp_year}-{qp_month}'
         else:
             # The stakes value for the current 'month' will be returned
-            part_key = get_current_time_period()
+            part_key = get_timestamp_id()
 
         item = get_db_item(db_name=db_values_name, part_key=part_key)
         # If item not exists return count and value = 0.
@@ -190,8 +196,11 @@ def lambda_handler(event, context) -> dict:
         # Put stake by transaction id (txid) into DynamoDB table
         put_stake_txids_db(stake=stake_data, db_name=db_txid_name)
 
-        # Put or update stakes value and stakes count for selected time period
-        put_stake_values_db(db_name=db_values_name, stake=stake_data, time_period=get_current_time_period())
+        # Put or update stakes value and stakes count for selected timestamp (time period):
+        # - month row
+        put_stake_values_db(db_name=db_values_name, stake=stake_data, timestamp=get_timestamp_id())
+        # - year row
+        put_stake_values_db(db_name=db_values_name, stake=stake_data, timestamp=get_timestamp_id(month=False))
 
         response = 'Tables updated and notification sent!'
 
