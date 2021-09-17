@@ -6,11 +6,13 @@ from resources.aws_policy_document import PolicyDocumentCustom, PolicyStatementC
 def test_condition_one_condition_pair():
     """
     GIVEN PolicyStatementCondition object.
-    WHEN Created PolicyStatementCondition object with 'condition_operator', 'condition_statements attributes.
+    WHEN Created PolicyStatementCondition object with 'condition_operator','condition_statements attributes.
     THEN Object created with desired attributes.
     """
-    cond_statement = PolicyStatementCondition(condition_operator='StringEquals',
-                                              condition_statements={'ec2:Vpc': 'arn:aws:ec2:region:account:vpc/vpc-11223344556677889'})
+    cond_statement = PolicyStatementCondition(
+        condition_operator='StringEquals',
+        condition_statements={'ec2:Vpc': 'arn:aws:ec2:region:account:vpc/vpc-11223344556677889'}
+    )
     desired_result = {
         'StringEquals': {
             'ec2:Vpc': 'arn:aws:ec2:region:account:vpc/vpc-11223344556677889'
@@ -39,9 +41,11 @@ def test_statement_add_condition(dummy_policy_statement):
     WHEN Add condition to PolicyStatement object.
     THEN Condition attached.
     """
-    dummy_policy_statement.add_condition(condition_operator='StringEquals',
-                                         condition_key='ec2:Vpc',
-                                         condition_value=['arn:aws:ec2:region:account:vpc/vpc-11223344556677889'])
+    dummy_policy_statement.add_condition(
+        condition_operator='StringEquals',
+        condition_key='ec2:Vpc',
+        condition_value=['arn:aws:ec2:region:account:vpc/vpc-11223344556677889']
+    )
     desired_result = {
         'Effect': 'Allow',
         'Action': 'execute-api:Invoke',
@@ -90,7 +94,7 @@ def test_policy_schema_one_statement_no_condition(dummy_policy_statement):
     assert test_policy.schema == desired_policy
 
 
-def test_policy_json_one_statement_no_condition( dummy_policy_statement):
+def test_policy_json_one_statement_no_condition(dummy_policy_statement):
     """
     GIVEN PolicyCustom and PolicyStatement object.
     WHEN Created object with one statement.
