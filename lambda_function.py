@@ -6,16 +6,16 @@ from datetime import datetime
 from decimal import Decimal
 
 
-def put_stake_txids_db(stake: dict, db_name: str) -> None:
+def put_stake_txids_db(stake: dict, table_name: str) -> None:
     """
     Add new stake item to specified DynamoDB table (list of individual stake txs).
     """
     dynamodb = boto3.resource('dynamodb')
-    stakes_table = dynamodb.Table(db_name)
+    stakes_table = dynamodb.Table(table_name)
     try:
         item = {
             'tx_id': stake['txid'],
-            'stake_value:': Decimal(str(stake['value'])),
+            'stake_value': Decimal(str(stake['value'])),
             'stake_ts': stake['time']
         }
         stakes_table.put_item(
@@ -25,23 +25,23 @@ def put_stake_txids_db(stake: dict, db_name: str) -> None:
         print(error)
 
 
-def put_stake_values_db(db_name: str, stake: dict, timestamp: str) -> None:
+def put_stake_values_db(table_name: str, stake: dict, timestamp: str) -> None:
     """
     Add or update stakes value & count for specified timestamp (time period) in DynamoDB table.
     Create new item if not exist.
     """
     # ts_id - timestamp id
     dynamodb = boto3.resource('dynamodb')
-    db_table = dynamodb.Table(db_name)
+    db_table = dynamodb.Table(table_name)
 
-    item_to_update = get_db_item(db_name=db_name, part_key=timestamp)
+    item_to_update = get_db_item(table_name=table_name, part_key=timestamp)
     if item_to_update:
         # Update item if timestamp id (ts_id) already exist in db
         updated_stake_data = {
             'stakes_value': item_to_update.get('stakes_value', 0) + stake.get('value', 0),
             'stakes_count': item_to_update.get('stakes_count', 0) + 1
         }
-        update_db_item(db_name=db_name, part_key=timestamp, updated_data=updated_stake_data)
+        update_db_item(table_name=table_name, part_key=timestamp, updated_data=updated_stake_data)
     else:
         # Put new item if timestamp id (ts_id) not exist in db
         item_new = {
@@ -52,13 +52,13 @@ def put_stake_values_db(db_name: str, stake: dict, timestamp: str) -> None:
         db_table.put_item(Item=item_new)
 
 
-def get_db_item(db_name: str, part_key: str) -> dict:
+def get_db_item(table_name: str, part_key: str) -> dict:
     """
     Get item from specified DynamoDB table.
     If item not exist return {}.
     """
     dynamodb = boto3.resource('dynamodb')
-    db_table = dynamodb.Table(db_name)
+    db_table = dynamodb.Table(table_name)
     try:
         item_data = db_table.get_item(Key={'ts_id': part_key})
         item = item_data.get('Item', {})
@@ -71,12 +71,12 @@ def get_db_item(db_name: str, part_key: str) -> dict:
     return item
 
 
-def update_db_item(db_name: str, part_key: str, updated_data: dict) -> None:
+def update_db_item(table_name: str, part_key: str, updated_data: dict) -> None:
     """
     Update DynamoDB item.
     """
     dynamodb = boto3.resource('dynamodb')
-    db_table = dynamodb.Table(db_name)
+    db_table = dynamodb.Table(table_name)
 
     db_table.update_item(
         Key={
@@ -95,9 +95,9 @@ def publish_to_sns(topic_arn: str, stake: dict) -> None:
     """
     Publish a message to the SNS topic.
     """
-    client = boto3.client('sns')
+    sns_client = boto3.client('sns')
     stake_value = stake['value']
-    client.publish(
+    sns_client.publish(
         TopicArn=topic_arn,
         Message=f'New stake in your VRSC wallet - {stake_value} VRSC',
         Subject='New stake',
@@ -149,9 +149,9 @@ def lambda_handler(event, context) -> dict:
     """
     # Load envs
     # Table that contains consolidated stake values for specific timestamp (time period).
-    db_values_name = os.environ.get('DYNAMODB_VALUES_NAME')
+    table_values_name = os.environ.get('DYNAMODB_VALUES_NAME')
     # Table that contains list of individual stake transactions (tx) - stake tx id, stake value, stake timestamp.
-    db_txid_name = os.environ.get('DYNAMODB_TXIDS_NAME')
+    table_txid_name = os.environ.get('DYNAMODB_TXIDS_NAME')
     sns_topic_arn = os.environ.get('TOPIC_ARN')
 
     http_method = event.get('http_method')
@@ -178,7 +178,7 @@ def lambda_handler(event, context) -> dict:
             # The stakes value for the current 'month' will be returned
             part_key = get_timestamp_id()
 
-        item = get_db_item(db_name=db_values_name, part_key=part_key)
+        item = get_db_item(table_name=table_values_name, part_key=part_key)
         # If item not exists return count and value = 0.
         response = {
             'timeframe': part_key,
@@ -190,17 +190,19 @@ def lambda_handler(event, context) -> dict:
         # Get stake data from POST request
         stake_data = event['body']
 
-        # Publish msg to SNS topic
-        publish_to_sns(topic_arn=sns_topic_arn, stake=stake_data)
+        if sns_topic_arn:
+            # Publish msg to SNS topic
+            publish_to_sns(topic_arn=sns_topic_arn, stake=stake_data)
 
         # Put stake by transaction id (txid) into DynamoDB table
-        put_stake_txids_db(stake=stake_data, db_name=db_txid_name)
+        # TODO: What with the stakes with the same txid? txid == epoch time of stake
+        put_stake_txids_db(stake=stake_data, table_name=table_txid_name)
 
         # Put or update stakes value and stakes count for selected timestamp (time period):
         # - month row
-        put_stake_values_db(db_name=db_values_name, stake=stake_data, timestamp=get_timestamp_id())
+        put_stake_values_db(table_name=table_values_name, stake=stake_data, timestamp=get_timestamp_id())
         # - year row
-        put_stake_values_db(db_name=db_values_name, stake=stake_data, timestamp=get_timestamp_id(month=False))
+        put_stake_values_db(table_name=table_values_name, stake=stake_data, timestamp=get_timestamp_id(month=False))
 
         response = 'Tables updated and notification sent!'
 
