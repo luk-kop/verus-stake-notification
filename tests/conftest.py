@@ -2,6 +2,9 @@ from pytest import fixture
 from psutil import Popen, Process
 import os
 
+import boto3
+from moto import mock_dynamodb2
+
 from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker
 from resources.aws_policy_document import PolicyStatement
 
@@ -88,3 +91,73 @@ def dummy_policy_statement():
                                        resources=['execute-api:/*'])
     return policy_statement
 
+
+@fixture(scope='function')
+def dynamodb():
+    """
+    Create mocked DynamoDB service resource.
+    """
+    with mock_dynamodb2():
+        yield boto3.resource('dynamodb')
+
+
+@fixture(scope='function')
+def aws_dummy_stake_txids_table(dynamodb):
+    """
+    Create a DynamoDB mocked verus_stakes_txids_table.
+    """
+    table_name = 'verus_stakes_txids_table_test'
+    table = dynamodb.create_table(
+        TableName=table_name,
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'tx_id',
+                'AttributeType': 'S'
+            }
+        ],
+        KeySchema=[
+            {
+                'AttributeName': 'tx_id',
+                'KeyType': 'HASH'
+            }
+        ],
+        BillingMode='PROVISIONED',
+        ProvisionedThroughput={
+            'ReadCapacityUnits': 1,
+            'WriteCapacityUnits': 1
+        },
+    )
+    # Waits on the existence of the table before yielding
+    table.meta.client.get_waiter('table_exists').wait(TableName=table_name)
+    yield table
+
+
+@fixture(scope='function')
+def aws_dummy_stake_values_table(dynamodb):
+    """
+    Create a DynamoDB mocked verus_stakes_values_table.
+    """
+    table_name = 'verus_stakes_txids_table_test'
+    table = dynamodb.create_table(
+        TableName=table_name,
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'ts_id',
+                'AttributeType': 'S'
+            }
+        ],
+        KeySchema=[
+            {
+                'AttributeName': 'ts_id',
+                'KeyType': 'HASH'
+            }
+        ],
+        BillingMode='PROVISIONED',
+        ProvisionedThroughput={
+            'ReadCapacityUnits': 1,
+            'WriteCapacityUnits': 1
+        },
+    )
+    # Waits on the existence of the table before yielding
+    table.meta.client.get_waiter('table_exists').wait(TableName=table_name)
+    yield

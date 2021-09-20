@@ -1,6 +1,55 @@
 from datetime import date
 
-from lambda_function import check_str_is_number, sanitize_query_params, get_timestamp_id
+from lambda_function import check_str_is_number, sanitize_query_params, get_timestamp_id, put_stake_txids_db
+
+
+def test_item_not_exist_in_stake_txids_db(aws_dummy_stake_txids_table):
+    """
+    GIVEN Empty DynamoDB table.
+    WHEN Get relevant item from DynamoDB table.
+    THEN Item with specified 'tx_id' not exist.
+    """
+    response = aws_dummy_stake_txids_table.get_item(Key={'tx_id': 'qwerty123456'})
+    item = response.get('Item', {})
+    assert item == {}
+
+
+def test_put_stake_txids_db_correct(aws_dummy_stake_txids_table,):
+    """
+    GIVEN Stake data from POST request.
+    WHEN The stake data is put into a relevant DynamoDB table.
+    THEN Item with desired 'tx_id' exist in relevant DynamoDB table and is correct.
+    """
+    table_name = aws_dummy_stake_txids_table.name
+    stake = {
+        'txid': 'qwerty123456',
+        'time': 1234567890,
+        'value': 123.123
+    }
+    put_stake_txids_db(stake=stake, table_name=table_name)
+    response = aws_dummy_stake_txids_table.get_item(Key={'tx_id': 'qwerty123456'})
+    item = response.get('Item', {})
+    assert stake['time'] == item['stake_ts']
+    assert stake['value'] == float(item['stake_value'])
+
+
+def test_put_stake_txids_db_incorrect(aws_dummy_stake_txids_table):
+    """
+    GIVEN Stake data from POST request.
+    WHEN The stake data is put into a relevant DynamoDB table.
+    THEN Item with desired 'tx_id' exist in relevant DynamoDB table but is incorrect.
+    """
+    table_name = aws_dummy_stake_txids_table.name
+    stake = {
+        'txid': 'qwerty123456',
+        'time': 1234567890,
+        'value': 123.123
+    }
+    put_stake_txids_db(stake=stake, table_name=table_name)
+    response = aws_dummy_stake_txids_table.get_item(Key={'tx_id': 'qwerty123456'})
+    item = response.get('Item', {})
+    assert 1234567891 != item['stake_ts']
+    assert 123.321 != float(item['stake_value'])
 
 
 def test_check_str_is_number_pos_int():
