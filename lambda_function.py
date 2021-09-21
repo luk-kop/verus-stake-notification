@@ -195,7 +195,6 @@ def lambda_handler(event, context) -> dict:
             publish_to_sns(topic_arn=sns_topic_arn, stake=stake_data)
 
         # Put stake by transaction id (txid) into DynamoDB table
-        # TODO: What with the stakes with the same txid? txid == epoch time of stake
         put_stake_txids_db(stake=stake_data, table_name=table_txid_name)
 
         # Put or update stakes value and stakes count for selected timestamp (time period):

@@ -92,7 +92,7 @@ def dummy_policy_statement():
     return policy_statement
 
 
-@fixture(scope='function')
+@fixture
 def dynamodb():
     """
     Create mocked DynamoDB service resource.
@@ -101,7 +101,7 @@ def dynamodb():
         yield boto3.resource('dynamodb')
 
 
-@fixture(scope='function')
+@fixture
 def aws_dummy_stake_txids_table(dynamodb):
     """
     Create a DynamoDB mocked verus_stakes_txids_table.
@@ -132,7 +132,7 @@ def aws_dummy_stake_txids_table(dynamodb):
     yield table
 
 
-@fixture(scope='function')
+@fixture
 def aws_dummy_stake_values_table(dynamodb):
     """
     Create a DynamoDB mocked verus_stakes_values_table.
@@ -158,6 +158,105 @@ def aws_dummy_stake_values_table(dynamodb):
             'WriteCapacityUnits': 1
         },
     )
-    # Waits on the existence of the table before yielding
+    # Waits on the existence of the table before yield-ing
     table.meta.client.get_waiter('table_exists').wait(TableName=table_name)
+    yield table
+
+
+@fixture
+def aws_dummy_dynamodb_both_tables(dynamodb):
+    """
+    Create a DynamoDB both mocked tables - for lambda_handler() func tests.
+    """
+    table_txids_name = 'verus_stakes_txids_table_test'
+    table_values_name = 'verus_stakes_values_table_test'
+    table_txids = dynamodb.create_table(
+        TableName=table_txids_name,
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'tx_id',
+                'AttributeType': 'S'
+            }
+        ],
+        KeySchema=[
+            {
+                'AttributeName': 'tx_id',
+                'KeyType': 'HASH'
+            }
+        ],
+        BillingMode='PROVISIONED',
+        ProvisionedThroughput={
+            'ReadCapacityUnits': 1,
+            'WriteCapacityUnits': 1
+        },
+    )
+    table_values = dynamodb.create_table(
+        TableName=table_values_name,
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'ts_id',
+                'AttributeType': 'S'
+            }
+        ],
+        KeySchema=[
+            {
+                'AttributeName': 'ts_id',
+                'KeyType': 'HASH'
+            }
+        ],
+        BillingMode='PROVISIONED',
+        ProvisionedThroughput={
+            'ReadCapacityUnits': 1,
+            'WriteCapacityUnits': 1
+        },
+    )
+    # Waits on the existence of the table before yielding
+    table_txids.meta.client.get_waiter('table_exists').wait(TableName=table_txids_name)
+    table_values.meta.client.get_waiter('table_exists').wait(TableName=table_values_name)
+    # Assign the appropriate environment variables
+    os.environ['DYNAMODB_VALUES_NAME'] = table_values.name
+    os.environ['DYNAMODB_TXIDS_NAME'] = table_txids.name
     yield
+
+
+@fixture
+def dummy_stake_data():
+    """
+    Return dummy Verus stake data.
+    """
+    stake_data = {
+        'txid': 'qwerty123456',
+        'time': 1234567890,
+        'value': 123.123
+    }
+    return stake_data
+
+
+@fixture
+def dummy_lambda_event_get():
+    """
+    Return dummy GET request data.
+    """
+    event_get = {
+        'year': '2011',
+        'month': '11',
+        'http_method': 'GET'
+    }
+    return event_get
+
+
+@fixture
+def dummy_lambda_event_post():
+    """
+    Return dummy POST request data.
+    """
+    event_post = {
+        'body': {
+            'txid': 'qwerty123456',
+            'time': 1234567890,
+            'value': 123.123
+        },
+        'http_method': 'POST'}
+    return event_post
+
+
