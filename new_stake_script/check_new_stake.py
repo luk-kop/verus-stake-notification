@@ -61,27 +61,41 @@ class VerusStakeChecker:
     """
     The class responsible for checking to confirm that a new stake has appeared in Verus wallet.
     """
-    def __init__(self, txcount_history_file_name: str = 'txcount_history.txt') -> None:
+    def __init__(self, txcount_history_file_name: str = 'tx_history.json') -> None:
         self.verus_process = VerusProcess()
         self.verus_script_name = 'verus'
         self.txcount_history_file_path = Path(__file__).resolve().parent.joinpath(txcount_history_file_name)
         self.wallet_info = self._get_wallet_info()
-        # Create txcount history file if not exist
-        self._create_history_file()
+        self.tx_hist_data = self._read_tx_hist_file()
+        # '_txid_stake_current' attr is reserved for stake txid in wallet
+        # Attr can be useful if the history (stored) stake txid has an initial value ('')
+        self._txid_stake_current = ''
 
     def run(self) -> None:
+        """
+        Run stake checker.
+        """
         if self.verus_process.status:
             if not self._is_txcount_different():
                 return
-            self._store_txcount()
+            self._update_txcount()
             if self._is_immature_balance():
                 # Load API related env vars from .env-api file.
                 env_data = self._load_env_data()
                 # Trigger external API
                 api = ApiGatewayCognito(env_data=env_data)
-                api.call()
-                logger.info('New stake')
-                return
+                for tx in self._get_wallet_new_stake_txs():
+                    # tx_timestamp = tx['time']
+                    # tx_stake_amount = tx['amount']
+                    # tx_address = tx['address']
+                    txid = tx['txid']
+                    print(txid)
+                    api.call()
+                    self._txid_stake_current = txid
+                    logger.info('New stake')
+            self._update_stake_txid()
+            self._store_new_tx_data()
+            return
         logger.error('verusd process is not running')
 
     def _load_env_data(self) -> Union[None, dict]:
@@ -106,13 +120,35 @@ class VerusStakeChecker:
                 sys.exit()
         return env_data
 
-    def _create_history_file(self) -> None:
+    @property
+    def verus_script_path(self) -> str:
         """
-        Create txcount history file if not exist
+        Return verus script absolute path.
         """
-        if not self.txcount_history_file_path.is_file():
-            with open(self.txcount_history_file_path, 'w') as file:
-                file.write('0')
+        return Path(self.verus_process.directory).joinpath(self.verus_script_name)
+
+    @property
+    def _initial_tx_history_file_content(self) -> dict:
+        """
+        Initial content for tx history file.
+        """
+        content = {
+            'txid_stake_previous': '',
+            'txcount_previous': '0'
+        }
+        return content
+
+    def _update_txcount(self) -> None:
+        """
+        Update 'txcount' data with current value.
+        """
+        self.tx_hist_data['txcount_previous'] = self.txcount_current
+
+    def _update_stake_txid(self) -> None:
+        """
+        Update 'txid_stake' data with current or most recent value.
+        """
+        self.tx_hist_data['txid_stake_previous'] = self._txid_stake_current
 
     @property
     def txcount_current(self) -> str:
@@ -122,20 +158,43 @@ class VerusStakeChecker:
         return str(self.wallet_info.get('txcount', 0))
 
     @property
-    def txcount_last(self) -> str:
+    def txcount_hist(self) -> str:
         """
-        Return 'txcount' value stored in 'txcount_history_file' (recent value).
+        Return 'txcount' value stored in tx history file (recent value).
         """
-        with open(self.txcount_history_file_path) as file:
-            content = file.read()
-        return content
+        return self.tx_hist_data.get('txcount_previous', 0)
 
     @property
-    def verus_script_path(self) -> str:
+    def txid_stake_hist(self) -> str:
         """
-        Return verus script absolute path.
+        Return 'txid' of last stake stored in tx history file (recent value).
         """
-        return Path(self.verus_process.directory).joinpath(self.verus_script_name)
+        return self.tx_hist_data.get('txid_stake_previous', '')
+
+    def _create_tx_history_file(self, content: dict = None) -> None:
+        """
+        Create tx history file if not exist
+        """
+        if not content:
+            content = self._initial_tx_history_file_content
+        with open(self.txcount_history_file_path, 'w') as outfile:
+            json.dump(content, outfile)
+
+    def _read_tx_hist_file(self) -> dict:
+        """
+        Return content of hist file.
+        Create new hist file if not exist or file content is invalid.
+        """
+        initial_content = self._initial_tx_history_file_content
+        try:
+            with open(self.txcount_history_file_path) as file:
+                content = json.load(file)
+                if initial_content.keys() == content.keys():
+                    return content
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            pass
+        self._create_tx_history_file()
+        return initial_content
 
     def _get_wallet_info(self) -> dict:
         """
@@ -148,12 +207,37 @@ class VerusStakeChecker:
         else:
             return {}
 
-    def _store_txcount(self) -> None:
+    def _get_wallet_new_stake_txs(self, count: int = 50) -> list:
         """
-        Write current 'txcount' value to 'txcount_history_file'.
+        Return list of new stake transactions (txs).
         """
-        with open(self.txcount_history_file_path, mode='w') as file:
-            file.write(self.txcount_current)
+        if self.verus_process.status:
+            options = [self.verus_script_path, 'listtransactions', '*', str(count)]
+            response = subprocess.run(args=options, capture_output=True, text=True)
+            transactions = json.loads(response.stdout)
+            # Get stake txs (with category 'mint') from last 'count' txs (oldest at the top)
+            stake_transactions = [tx for tx in transactions if tx['category'] == 'mint']
+            # Assign helper vars
+            new_stake_transactions, find_prev_stake_txid = [], False
+            # Append to new_stake_transactions only stake txs that followed a saved/previous stake tx
+            for tx in stake_transactions:
+                txid = tx['txid']
+                if find_prev_stake_txid:
+                    new_stake_transactions.append(tx)
+                if txid == self.txid_stake_hist:
+                    # The helper 'find_prev_stake_txid' var is used to append tx on the next evaluation of the loop
+                    find_prev_stake_txid = True
+                # Attr is useful if the hist (stored) stake txid has a initial value ('')
+                self._txid_stake_current = txid
+            return new_stake_transactions
+        else:
+            return []
+
+    def _store_new_tx_data(self) -> None:
+        """
+        Store new/updated tx data in tx history file.
+        """
+        self._create_tx_history_file(content=self.tx_hist_data)
 
     def _get_immature_balance(self) -> int:
         """
@@ -165,7 +249,7 @@ class VerusStakeChecker:
         """
         Check whether 'txcount' changed.
         """
-        return self.txcount_current != self.txcount_last
+        return self.txcount_current != self.txcount_hist
 
     def _is_immature_balance(self) -> bool:
         """
