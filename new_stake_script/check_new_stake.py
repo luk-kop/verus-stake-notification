@@ -68,32 +68,32 @@ class VerusStakeChecker:
         self.txcount_history_file_path = Path(__file__).resolve().parent.joinpath(txcount_history_file_name)
         self.wallet_info = self._get_wallet_info()
         self.tx_hist_data = self._read_tx_hist_file()
-        # '_txid_stake_current' attr is reserved for stake txid in wallet
-        # Attr can be useful if the history (stored) stake txid has an initial value ('')
 
     def run(self) -> None:
         """
         Run stake checker.
         """
         if self.verus_process.status:
-            print('Run...')
             if not self._is_txcount_different():
-                print('The same txcount')
                 return
             self._update_txcount()
+            # Assign initial 'txid'
+            txid = ''
             if self._is_immature_balance():
                 # Load API related env vars from .env-api file.
                 env_data = self._load_env_data()
                 # Trigger external API
                 api = ApiGatewayCognito(env_data=env_data)
-                for tx in self._get_wallet_new_stake_txs():
+                new_stake_txs = self._get_wallet_new_stake_txs()
+                for tx in new_stake_txs:
                     # tx_timestamp = tx['time']
                     # tx_stake_amount = tx['amount']
                     # tx_address = tx['address']
                     txid = tx['txid']
-                    # api.call()
-                    self._update_stake_txid(txid=txid)
+                    api.call()
                     logger.info('New stake')
+            if txid:
+                self._update_stake_txid(txid=txid)
             else:
                 self._update_stake_txid()
             self._store_new_tx_data()
@@ -171,7 +171,7 @@ class VerusStakeChecker:
         return self.tx_hist_data.get('txcount_previous', 0)
 
     @property
-    def txid_stake_hist(self) -> str:
+    def _txid_stake_hist(self) -> str:
         """
         Return 'txid' of last stake stored in tx history file (recent value).
         """
@@ -254,11 +254,9 @@ class VerusStakeChecker:
                 txid = tx['txid']
                 if find_prev_stake_txid:
                     new_stake_txs.append(tx)
-                if txid == self.txid_stake_hist:
+                if txid == self._txid_stake_hist:
                     # The helper 'find_prev_stake_txid' var is used to append tx on the next evaluation of the loop
                     find_prev_stake_txid = True
-                # Update the stake txid to the latest value
-                self._update_stake_txid(txid=txid)
             return new_stake_txs
         else:
             return []
