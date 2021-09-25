@@ -43,16 +43,17 @@ def nonexistent_process():
 @fixture
 def verus_stake_checker():
     """
-    Create VerusStakeChecker() object with custom txcount history file.
+    Create VerusStakeChecker() object with custom transactions (txs) history file.
     """
-    filename = 'txcount_test.txt'
+    filename = 'tx_history_test.json'
     stake_checker = VerusStakeChecker(txcount_history_file_name=filename)
+    filename_path = stake_checker.txcount_history_file_path
     # Setup dummy processes
     process_dummy, process_to_test = create_dummy_processes()
     stake_checker.verus_process = process_to_test
     yield stake_checker
     # Remove filename after test completion
-    os.remove(filename)
+    os.remove(filename_path)
     # Teardown dummy process
     process_dummy.terminate()
 

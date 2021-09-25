@@ -52,10 +52,11 @@ def test_txcount_history_file_created(verus_stake_checker):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess
-    THEN txtcount history file has been created
+    THEN txs history file has been created
     """
-    filename = 'txcount_test.txt'
-    assert os.path.exists(filename)
+    filename = 'tx_history_test.json'
+    filename_path = Path(__file__).resolve().parents[1].joinpath('new_stake_script', filename)
+    assert os.path.exists(filename_path)
 
 
 def test_wallet_info_txcount_current(verus_stake_checker, dummy_wallet_no_stake):
@@ -71,14 +72,14 @@ def test_wallet_info_txcount_current(verus_stake_checker, dummy_wallet_no_stake)
     assert verus_stake_checker.txcount_current == '10'
 
 
-def test_wallet_info_txcount_last_on_start(verus_stake_checker):
+def test_wallet_info_txcount_hist_on_start(verus_stake_checker):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess
     THEN last (historical) txtcount should be equal 0 on start
     """
     # Check txcount last value on start
-    assert verus_stake_checker.txcount_last == '0'
+    assert verus_stake_checker.txcount_hist == '0'
 
 
 def test_wallet_info_txcount_different(verus_stake_checker, dummy_wallet_no_stake):
@@ -89,7 +90,7 @@ def test_wallet_info_txcount_different(verus_stake_checker, dummy_wallet_no_stak
     """
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
-    assert verus_stake_checker.txcount_last == '0'
+    assert verus_stake_checker.txcount_hist == '0'
     assert verus_stake_checker.txcount_current == '10'
 
 
@@ -102,10 +103,10 @@ def test_verus_state_checker_run_different_txcounts(verus_stake_checker, dummy_w
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
     # Before run txcounts have different values
-    assert verus_stake_checker.txcount_last != verus_stake_checker.txcount_current
+    assert verus_stake_checker.txcount_hist != verus_stake_checker.txcount_current
     # After run txcounts should have the same values
     verus_stake_checker.run()
-    assert verus_stake_checker.txcount_last == verus_stake_checker.txcount_current
+    assert verus_stake_checker.txcount_hist == verus_stake_checker.txcount_current
 
 
 def test_verus_state_checker_run_equal_txcounts(verus_stake_checker, dummy_wallet_no_stake):
@@ -119,13 +120,13 @@ def test_verus_state_checker_run_equal_txcounts(verus_stake_checker, dummy_walle
     # First run - after first run txcounts should have the same values
     verus_stake_checker.run()
     # Store txcounta after first run
-    txcont_last_first_run = verus_stake_checker.txcount_last
+    txcont_last_first_run = verus_stake_checker.txcount_hist
     txcount_current_first_run = verus_stake_checker.txcount_current
     # Second run without new stake
     verus_stake_checker.run()
     # After the second run the txcounts should be equal to txcounts from first run
-    assert verus_stake_checker.txcount_last == verus_stake_checker.txcount_current
-    assert verus_stake_checker.txcount_last == txcont_last_first_run
+    assert verus_stake_checker.txcount_hist == verus_stake_checker.txcount_current
+    assert verus_stake_checker.txcount_hist == txcont_last_first_run
     assert verus_stake_checker.txcount_current == txcount_current_first_run
 
 
@@ -139,14 +140,14 @@ def test_verus_state_checker_run_new_stake(verus_stake_checker, dummy_wallet_no_
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
     # First run - after first run txcounts should have the same values
     verus_stake_checker.run()
-    txcont_last_first_run = verus_stake_checker.txcount_last
+    txcont_last_first_run = verus_stake_checker.txcount_hist
     txcount_current_first_run = verus_stake_checker.txcount_current
     # Second run with new stake
     verus_stake_checker.wallet_info = dummy_wallet_new_stake
     verus_stake_checker.run()
     # After the second run the txcounts should be different to txcounts from first run
-    assert verus_stake_checker.txcount_last == verus_stake_checker.txcount_current
-    assert verus_stake_checker.txcount_last != txcont_last_first_run
+    assert verus_stake_checker.txcount_hist == verus_stake_checker.txcount_current
+    assert verus_stake_checker.txcount_hist != txcont_last_first_run
     assert verus_stake_checker.txcount_current != txcount_current_first_run
 
 
