@@ -5,6 +5,7 @@ from typing import Union
 import sys
 from pathlib import Path
 import logging
+from dataclasses import dataclass
 
 from dotenv import dotenv_values
 import requests
@@ -68,6 +69,7 @@ class VerusStakeChecker:
         self.txcount_history_file_path = Path(__file__).resolve().parent.joinpath(txcount_history_file_name)
         self.wallet_info = self._get_wallet_info()
         self.tx_hist_data = self._read_tx_hist_file()
+        self.stake_txs = StakeTransactions()
 
     def run(self) -> None:
         """
@@ -239,7 +241,21 @@ class VerusStakeChecker:
             stake_txs = [tx for tx in transactions if tx['category'] == 'mint']
         return stake_txs
 
-    def _get_wallet_new_stake_txs(self, count: int = 50) -> list:
+    def get_wallet_stake_txs_new(self, count: int = 50):
+        options = [self.verus_script_path, 'listtransactions', '*', str(count)]
+        response = subprocess.run(args=options, capture_output=True, text=True)
+        transactions = json.loads(response.stdout)
+        for tx in transactions:
+            if tx['category'] == 'mint':
+                stake_tx = StakeTransaction(
+                    txid=tx['txid'],
+                    time=tx['time'],
+                    amount=tx['amount'],
+                    address=tx['address']
+                )
+                self.stake_txs.add_stake_tx(stake_tx)
+
+    def _get_wallet_new_stake_txs(self) -> list:
         """
         Return list of ONLY new stake transactions (txs) in wallet.
         New txs relative to stored hist txid.
@@ -287,6 +303,75 @@ class VerusStakeChecker:
         if self._get_immature_balance() == 0:
             return False
         return True
+
+
+@dataclass
+class StakeTransaction:
+    """
+    The class representing single stake transaction (tx) in wallet.
+    """
+    txid: str
+    time: int
+    amount: float
+    address: str
+
+
+class StakeTransactions:
+    """
+    The class representing collection of StakeTransaction object.
+    """
+    def __init__(self):
+        self.txs = []
+
+    def add_stake_tx(self, tx) -> None:
+        """
+        Add StakeTransaction to collection.
+        """
+        if not isinstance(tx, StakeTransaction):
+            raise TypeError('Must be StakeTransaction object.')
+        self.txs.append(tx)
+
+    @property
+    def txs_sorted(self) -> list:
+        """
+        Return sorted stake txs - newest at the end.
+        """
+        return sorted(self.txs, key=lambda tx: tx.time)
+
+    def get_last_stake_txid(self) -> str:
+        """
+        Return last known stake txid in wallet.
+        """
+        try:
+            return self.txs_sorted[-1]
+        except IndexError:
+            return ''
+
+    def get_stakes_txid(self) -> list:
+        """
+        Return list of sorted stake txids - newest at the end.
+        """
+        return [tx.txid for tx in self.txs_sorted]
+
+    def get_tx(self, txid: str) -> Union[StakeTransaction, None]:
+        """
+        Return specified StakeTransaction object if exist.
+        """
+        for tx in self.txs:
+            if tx.txid == txid:
+                return tx
+            else:
+                return
+
+    def get_new_stakes(self, txid_last: str) -> list:
+        """
+        Return a newer transaction than the one specified - 'txid'
+        """
+        tx_last = self.get_tx(txid=txid_last)
+        if tx_last:
+            return [tx for tx in self.txs if tx['time'] > tx_last.time]
+        else:
+            return []
 
 
 class ApiGatewayCognito:
