@@ -334,42 +334,42 @@ class StakeTransactions:
     @property
     def txs_sorted(self) -> list:
         """
-        Return sorted stake txs - newest at the end.
+        Return sorted stake txs (newest at the end).
         """
         return sorted(self.txs, key=lambda tx: tx.time)
+
+    @property
+    def stakes_txids(self) -> list:
+        """
+        Return list of sorted stake txids - newest at the end.
+        """
+        return [tx.txid for tx in self.txs_sorted]
 
     def get_last_stake_txid(self) -> str:
         """
         Return last known stake txid in wallet.
         """
         try:
-            return self.txs_sorted[-1]
+            return self.stakes_txids[-1]
         except IndexError:
             return ''
 
-    def get_stakes_txid(self) -> list:
-        """
-        Return list of sorted stake txids - newest at the end.
-        """
-        return [tx.txid for tx in self.txs_sorted]
-
-    def get_tx(self, txid: str) -> Union[StakeTransaction, None]:
+    def get_stake_tx(self, txid: str) -> Union[StakeTransaction, None]:
         """
         Return specified StakeTransaction object if exist.
         """
-        for tx in self.txs:
-            if tx.txid == txid:
-                return tx
-            else:
-                return
+        for stake_tx in self.txs:
+            if stake_tx.txid == txid:
+                return stake_tx
+        return
 
-    def get_new_stakes(self, txid_last: str) -> list:
+    def get_new_stakes_txs(self, txid_last: str) -> list:
         """
-        Return a newer transaction than the one specified - 'txid'
+        Return sorted list of only newer txs than the 'txid' specified (newest txs at the end).
         """
-        tx_last = self.get_tx(txid=txid_last)
+        tx_last = self.get_stake_tx(txid=txid_last)
         if tx_last:
-            return [tx for tx in self.txs if tx['time'] > tx_last.time]
+            return [tx for tx in self.txs_sorted if tx.time > tx_last.time]
         else:
             return []
 
