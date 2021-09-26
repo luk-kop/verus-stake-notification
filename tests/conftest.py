@@ -5,7 +5,8 @@ import os
 import boto3
 from moto import mock_dynamodb2
 
-from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker
+from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker, \
+    StakeTransaction, StakeTransactions
 from resources.aws_policy_document import PolicyStatement
 
 
@@ -261,3 +262,25 @@ def dummy_lambda_event_post():
     return event_post
 
 
+@fixture
+def dummy_stake_txs():
+    """
+    Return a tuple of unordered and ordered dummy stake transactions (txs).
+    """
+    tx_01 = StakeTransaction(txid='tx01', time='100', amount=123, address='RXXX')
+    tx_02 = StakeTransaction(txid='tx02', time='101', amount=12, address='RYYY')
+    tx_03 = StakeTransaction(txid='tx03', time='102', amount=10, address='RYYY')
+    tx_04 = StakeTransaction(txid='tx04', time='105', amount=1, address='RZZZ')
+    return [tx_02, tx_04, tx_01, tx_03], [tx_01, tx_02, tx_03, tx_04]
+
+
+@fixture
+def dummy_stake_txs_collection(dummy_stake_txs):
+    """
+    Return a StakeTransactions object with collection of dummy stake txs.
+    """
+    stake_txs = StakeTransactions()
+    dummy_stake_txs_unordered = dummy_stake_txs[0]
+    for tx in dummy_stake_txs_unordered:
+        stake_txs.add_stake_tx(tx)
+    return stake_txs
