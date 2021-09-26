@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 
 from dotenv import dotenv_values
 import requests
@@ -76,28 +77,23 @@ class VerusStakeChecker:
         Run stake checker.
         """
         if self.verus_process.status:
-            if not self._is_txcount_different():
+            if not self._check_txcount_changed():
                 return
             self._update_txcount()
-            # Assign initial 'txid'
-            txid = ''
-            if self._is_immature_balance():
-                # Load API related env vars from .env-api file.
-                env_data = self._load_env_data()
-                # Trigger external API
-                api = ApiGatewayCognito(env_data=env_data)
-                new_stake_txs = self._get_wallet_new_stake_txs()
-                for tx in new_stake_txs:
-                    # tx_timestamp = tx['time']
-                    # tx_stake_amount = tx['amount']
-                    # tx_address = tx['address']
-                    txid = tx['txid']
-                    api.call()
-                    logger.info('New stake')
-            if txid:
-                self._update_stake_txid(txid=txid)
-            else:
-                self._update_stake_txid()
+            # Load API related env vars from .env-api file.
+            env_data = self._load_env_data()
+            # Trigger external API
+            api = ApiGatewayCognito(env_data=env_data)
+            new_stake_txs = self._get_wallet_new_stake_txs()
+            for tx in new_stake_txs:
+                tx_timestamp = tx.time
+                tx_stake_amount = tx.amount
+                tx_address = tx.address
+                txid = tx.txid
+                api.call()
+                tx_timestamp_user_friendly_format = datetime.fromtimestamp(tx_timestamp).strftime('%Y-%m-%d %H:%M:%SLT')
+                logger.info(f'New stake in wallet at {tx_timestamp_user_friendly_format}')
+            self._update_stake_txid()
             self._store_new_tx_data()
             return
         logger.error('verusd process is not running')
@@ -208,44 +204,33 @@ class VerusStakeChecker:
         """
         Get detailed walletinfo from Verus process api.
         """
+        options = [self.verus_script_path, 'getwalletinfo']
+        wallet_info = self._process_call(options=options)
+        return wallet_info if wallet_info else {}
+
+    def _process_call(self, options: list) -> Union[dict, list, None]:
+        """
+        Call Verus process api.
+        """
         if self.verus_process.status:
-            options = [self.verus_script_path, 'getwalletinfo']
             response = subprocess.run(args=options, capture_output=True, text=True)
             return json.loads(response.stdout)
-        else:
-            return {}
 
     @property
     def _last_wallet_stake_txid(self) -> str:
         """
         Return last known stake txid in wallet.
         """
-        stake_txids = self._get_wallet_stake_txs(only_txids=True)
-        try:
-            return stake_txids[-1]
-        except IndexError:
-            return ''
+        return self.stake_txs.get_last_stake_txid()
 
-    def _get_wallet_stake_txs(self, count: int = 50, only_txids: bool = False) -> list:
+    def _get_wallet_stake_txs(self, count: int = 50) -> None:
         """
-        Return list of last 'count' stake transactions (txs) or only stake transactions ids (txids) in wallet.
+        Return list of last 'count' stake transactions (txs) in wallet.
         """
         options = [self.verus_script_path, 'listtransactions', '*', str(count)]
-        response = subprocess.run(args=options, capture_output=True, text=True)
-        transactions = json.loads(response.stdout)
-        if only_txids:
-            # Get stake txids (with category 'mint') from last 'count' txs (oldest at the top)
-            stake_txs = [tx['txid'] for tx in transactions if tx['category'] == 'mint']
-        else:
-            # Get stake txs (with category 'mint') from last 'count' txs (oldest at the top)
-            stake_txs = [tx for tx in transactions if tx['category'] == 'mint']
-        return stake_txs
-
-    def get_wallet_stake_txs_new(self, count: int = 50):
-        options = [self.verus_script_path, 'listtransactions', '*', str(count)]
-        response = subprocess.run(args=options, capture_output=True, text=True)
-        transactions = json.loads(response.stdout)
-        for tx in transactions:
+        response = self._process_call(options=options)
+        txs = response if response else []
+        for tx in txs:
             if tx['category'] == 'mint':
                 stake_tx = StakeTransaction(
                     txid=tx['txid'],
@@ -258,24 +243,10 @@ class VerusStakeChecker:
     def _get_wallet_new_stake_txs(self) -> list:
         """
         Return list of ONLY new stake transactions (txs) in wallet.
-        New txs relative to stored hist txid.
+        New txs relative to stored hist stake txid.
         """
-        if self.verus_process.status:
-            # Get stake txs (with category 'mint') from last 'count' txs (oldest at the top)
-            stake_txs = self._get_wallet_stake_txs()
-            # Assign helper vars
-            new_stake_txs, find_prev_stake_txid = [], False
-            # Append to new_stake_transactions only stake txs that followed a saved/previous stake tx
-            for tx in stake_txs:
-                txid = tx['txid']
-                if find_prev_stake_txid:
-                    new_stake_txs.append(tx)
-                if txid == self._txid_stake_hist:
-                    # The helper 'find_prev_stake_txid' var is used to append tx on the next evaluation of the loop
-                    find_prev_stake_txid = True
-            return new_stake_txs
-        else:
-            return []
+        self._get_wallet_stake_txs()
+        return self.stake_txs.get_new_stakes_txs(txid_last=self._txid_stake_hist)
 
     def _store_new_tx_data(self) -> None:
         """
@@ -283,26 +254,11 @@ class VerusStakeChecker:
         """
         self._create_tx_history_file(content=self.tx_hist_data)
 
-    def _get_immature_balance(self) -> int:
-        """
-        Return current 'immature_balance' value.
-        """
-        return int(self.wallet_info.get('immature_balance', 0))
-
-    def _is_txcount_different(self) -> bool:
+    def _check_txcount_changed(self) -> bool:
         """
         Check whether 'txcount' changed.
         """
         return self.txcount_current != self.txcount_hist
-
-    def _is_immature_balance(self) -> bool:
-        """
-        Checks whether the change in 'txcount' value was caused by the new stake.
-        If the change was caused by a stake, the 'immature_balance' value (from wallet_info) should be != 0.
-        """
-        if self._get_immature_balance() == 0:
-            return False
-        return True
 
 
 @dataclass

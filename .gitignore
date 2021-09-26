@@ -13,6 +13,7 @@ terraform_files/.terraform*
 
 notes*
 txcount*
+tx_hist*
 *.xml
 
 
