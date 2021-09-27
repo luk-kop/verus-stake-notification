@@ -284,3 +284,34 @@ def dummy_stake_txs_collection(dummy_stake_txs):
     for tx in dummy_stake_txs_unordered:
         stake_txs.add_stake_tx(tx)
     return stake_txs
+
+
+@fixture
+def dummy_list_txs():
+    """
+    Transactions returned by VerusStakeChecker's _process_call() method.
+    """
+    txs = [
+        {
+            'address': 'RYYY',
+            'category': 'stake',
+            'amount': 8000.00000000,
+            'txid': 'tx02',
+            'time': 16327551319
+        },
+        {
+            'address': 'RXXX',
+            'category': 'mint',
+            'amount': 123.00000000,
+            'txid': 'tx01',
+            'time': 1632750319
+        },
+        {
+            'address': 'RXXX',
+            'category': 'mint',
+            'amount': 10.00000000,
+            'txid': 'tx03',
+            'time': 16327591319
+        },
+    ]
+    return txs

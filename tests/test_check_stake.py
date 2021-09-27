@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions
+from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions, VerusStakeChecker
 
 
 def test_process_exist(dummy_process):
@@ -96,7 +96,7 @@ def test_wallet_info_txcount_different(verus_stake_checker, dummy_wallet_no_stak
     assert verus_stake_checker.txcount_current == '10'
 
 
-def test_verus_state_checker_run_different_txcounts(verus_stake_checker, dummy_wallet_no_stake):
+def test_verus_state_checker_run_different_txcounts(mocker, verus_stake_checker, dummy_wallet_no_stake, dummy_list_txs):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess and dummy wallet info data
@@ -106,12 +106,14 @@ def test_verus_state_checker_run_different_txcounts(verus_stake_checker, dummy_w
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
     # Before run txcounts have different values
     assert verus_stake_checker.txcount_hist != verus_stake_checker.txcount_current
+    # Mock _process_call() method
+    mocker.patch.object(VerusStakeChecker, '_process_call', return_value=dummy_list_txs)
     # After run txcounts should have the same values
     verus_stake_checker.run()
     assert verus_stake_checker.txcount_hist == verus_stake_checker.txcount_current
 
 
-def test_verus_state_checker_run_equal_txcounts(verus_stake_checker, dummy_wallet_no_stake):
+def test_verus_state_checker_run_equal_txcounts(mocker, verus_stake_checker, dummy_wallet_no_stake, dummy_list_txs):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess and dummy wallet info data (no stake in wallet)
@@ -119,6 +121,8 @@ def test_verus_state_checker_run_equal_txcounts(verus_stake_checker, dummy_walle
     """
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
+    # Mock _process_call() method
+    mocker.patch.object(VerusStakeChecker, '_process_call', return_value=dummy_list_txs)
     # First run - after first run txcounts should have the same values
     verus_stake_checker.run()
     # Store txcounta after first run
@@ -132,7 +136,8 @@ def test_verus_state_checker_run_equal_txcounts(verus_stake_checker, dummy_walle
     assert verus_stake_checker.txcount_current == txcount_current_first_run
 
 
-def test_verus_state_checker_run_new_stake(verus_stake_checker, dummy_wallet_no_stake, dummy_wallet_new_stake):
+def test_verus_state_checker_run_new_stake(mocker, verus_stake_checker, dummy_wallet_no_stake,
+                                           dummy_wallet_new_stake, dummy_list_txs):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess and dummy wallet info data (new stake in wallet)
@@ -140,6 +145,8 @@ def test_verus_state_checker_run_new_stake(verus_stake_checker, dummy_wallet_no_
     """
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
+    # Mock _process_call() method
+    mocker.patch.object(VerusStakeChecker, '_process_call', return_value=dummy_list_txs)
     # First run - after first run txcounts should have the same values
     verus_stake_checker.run()
     txcont_last_first_run = verus_stake_checker.txcount_hist
@@ -160,10 +167,10 @@ def test_stake_transaction_correct():
     THEN StakeTransaction object's attributes are correct
     """
     dummy_tx = {
-        'address': 'Rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'address': 'RXXX',
         'category': 'mint',
         'amount': 12.00000000,
-        'txid': '32ecdcb68bda97cf597de0af98a2a9e1210e89e490274f9fa2f64955d2f4e948',
+        'txid': 'tx01',
         'time': 1632511111
     }
     tx = StakeTransaction(
@@ -172,10 +179,10 @@ def test_stake_transaction_correct():
         amount=dummy_tx['amount'],
         address=dummy_tx['address']
     )
-    assert tx.txid == '32ecdcb68bda97cf597de0af98a2a9e1210e89e490274f9fa2f64955d2f4e948'
+    assert tx.txid == 'tx01'
     assert tx.time == 1632511111
     assert tx.amount == 12.00000000
-    assert tx.address == 'Rxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    assert tx.address == 'RXXX'
 
 
 def test_stake_transactions_correct_order(dummy_stake_txs):
