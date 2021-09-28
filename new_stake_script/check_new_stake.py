@@ -351,12 +351,16 @@ class ApiGatewayCognito:
         headers = {
             'Authorization': access_token
         }
-        if method.lower() == 'get':
-            # data = {'year': '2021', 'month': '11'}
-            response = requests.get(self.api_gateway_url, headers=headers, params=data)
-            # return response.json()['body']
-        else:
-            response = requests.post(self.api_gateway_url, headers=headers, json=data)
+        try:
+            if method.lower() == 'get':
+                # data = {'year': '2021', 'month': '11'}
+                response = requests.get(self.api_gateway_url, headers=headers, params=data)
+                # return response.json()['body']
+            else:
+                response = requests.post(self.api_gateway_url, headers=headers, json=data)
+        except requests.exceptions.RequestException:
+            logger.error(f'API call: failed to establish a new connection')
+            sys.exit()
         self._check_response_status(response)
 
     def _check_http_method(self, method: str) -> None:
@@ -364,7 +368,7 @@ class ApiGatewayCognito:
         Check whether the HTTP method is allowed for API call.
         """
         if method.lower() not in ['post', 'get']:
-            logger.error(f'API response: {method} is not allowed HTTP method')
+            logger.error(f'API method: {method} is not allowed HTTP method')
             sys.exit()
 
     def _get_access_token(self) -> str:
@@ -378,12 +382,16 @@ class ApiGatewayCognito:
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded'
         }
-        response = requests.post(
-            url=self.cognito_token_url,
-            data=body,
-            auth=(self.cognito_client_id, self.cognito_client_secret),
-            headers=headers
-        )
+        try:
+            response = requests.post(
+                url=self.cognito_token_url,
+                data=body,
+                auth=(self.cognito_client_id, self.cognito_client_secret),
+                headers=headers
+            )
+        except requests.exceptions.RequestException:
+            logger.error(f'API access token: failed to establish a new connection')
+            sys.exit()
         self._check_response_status(response)
         return response.json()['access_token']
 
@@ -399,14 +407,31 @@ class ApiGatewayCognito:
 
 if __name__ == '__main__':
     verus_check = VerusStakeChecker()
+
+    # Run Verus check
     # verus_check.run()
+
+    # Only for API tests
     env_data = verus_check._load_env_data()
     api = ApiGatewayCognito(env_data)
-    data_to_post = {
+    data_post = {
         'txid': 'tx02',
         'time': 123480,
         'amount': 12.0
     }
-    data_to_get = {}
-    # api.call(method='post', data=data_to_post)
-    api.call(method='get', data=data_to_get)
+
+    data_get = [
+        {},
+        {
+            'year': '2021'
+        },
+        {
+            'year': '2021',
+            'month': '09'
+        }
+    ]
+    # API POST call
+    # api.call(method='post', data=data_post)
+    # API GET calls
+    # for data in data_get:
+    #     api.call(method='get', data=data)
