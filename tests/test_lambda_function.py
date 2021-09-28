@@ -1,5 +1,4 @@
 from datetime import date
-import os
 import json
 
 from lambda_function import check_str_is_number, sanitize_query_params, get_timestamp_id, put_stake_txids_db, \
@@ -39,7 +38,7 @@ def test_put_stake_txids_db_correct(aws_dummy_stake_txids_table, dummy_stake_dat
     response = aws_dummy_stake_txids_table.get_item(Key={'tx_id': 'qwerty123456'})
     item = response.get('Item', {})
     assert dummy_stake_data['time'] == item['stake_ts']
-    assert dummy_stake_data['value'] == float(item['stake_value'])
+    assert dummy_stake_data['amount'] == float(item['stake_amount'])
 
 
 def test_put_stake_txids_db_incorrect(aws_dummy_stake_txids_table, dummy_stake_data):
@@ -53,7 +52,7 @@ def test_put_stake_txids_db_incorrect(aws_dummy_stake_txids_table, dummy_stake_d
     response = aws_dummy_stake_txids_table.get_item(Key={'tx_id': 'qwerty123456'})
     item = response.get('Item', {})
     assert 1234567891 != item['stake_ts']
-    assert 123.321 != float(item['stake_value'])
+    assert 123.321 != float(item['stake_amount'])
 
 
 def test_put_stake_values_db_correct_year_month(aws_dummy_stake_values_table, dummy_stake_data):
@@ -67,7 +66,7 @@ def test_put_stake_values_db_correct_year_month(aws_dummy_stake_values_table, du
     response = aws_dummy_stake_values_table.get_item(Key={'ts_id': '2021-01'})
     item = response.get('Item', {})
     assert int(item['stakes_count']) == 1
-    assert float(item['stakes_value']) == 123.123
+    assert float(item['stakes_amount']) == 123.123
 
 
 def test_put_stake_values_db_correct_year(aws_dummy_stake_values_table, dummy_stake_data):
@@ -81,7 +80,7 @@ def test_put_stake_values_db_correct_year(aws_dummy_stake_values_table, dummy_st
     response = aws_dummy_stake_values_table.get_item(Key={'ts_id': '2021'})
     item = response.get('Item', {})
     assert int(item['stakes_count']) == 1
-    assert float(item['stakes_value']) == 123.123
+    assert float(item['stakes_amount']) == 123.123
 
 
 def test_get_db_item_not_exist(aws_dummy_stake_values_table):
@@ -147,7 +146,7 @@ def test_update_db_item(aws_dummy_stake_values_table, dummy_stake_data):
     table_name = aws_dummy_stake_values_table.name
     timestamp = '2021-03'
     updated_stake_data = {
-        'stakes_value': 150.1,
+        'stakes_amount': 150.1,
         'stakes_count': 2
     }
     # Put dummy data into table
@@ -155,7 +154,7 @@ def test_update_db_item(aws_dummy_stake_values_table, dummy_stake_data):
     update_db_item(table_name=table_name, part_key=timestamp, updated_data=updated_stake_data)
     item = get_db_item(table_name=table_name, part_key=timestamp)
     assert int(item['stakes_count']) == 2
-    assert float(item['stakes_value']) == 150.1
+    assert float(item['stakes_amount']) == 150.1
 
 
 def test_lambda_handler_get_request(aws_dummy_dynamodb_both_tables, dummy_lambda_event_get):
@@ -168,7 +167,7 @@ def test_lambda_handler_get_request(aws_dummy_dynamodb_both_tables, dummy_lambda
     response_desired = {
         'timeframe': '2011-11',
         'stakes_count': 0,
-        'stakes_value': 0
+        'stakes_amount': 0
     }
     body = {
         'statusCode': 200,
@@ -245,7 +244,7 @@ def test_sanitize_query_params_correct_values():
     """
     GIVEN Correct year and month params.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with desired year and month values.
+    THEN Result is tuple with desired year and month amount.
     """
     result = sanitize_query_params(year='2021', month='01')
     assert result == ('2021', '01')
@@ -285,7 +284,7 @@ def test_sanitize_query_params_wrong_year_out_of_range_down():
     """
     GIVEN Out of range year and correct month params.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with empty string and month value.
+    THEN Result is tuple with empty string and month amount.
     """
     result = sanitize_query_params(year='-123', month='01')
     assert result == ('', '01')
@@ -295,7 +294,7 @@ def test_sanitize_query_params_wrong_year_out_of_range_up():
     """
     GIVEN Out of range year and correct month params.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with empty string and month value.
+    THEN Result is tuple with empty string and month amount.
     """
     result = sanitize_query_params(year='10000', month='01')
     assert result == ('', '01')
@@ -305,7 +304,7 @@ def test_sanitize_query_params_wrong_year_not_number():
     """
     GIVEN year param as a text and correct month param.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with empty string and month value.
+    THEN Result is tuple with empty string and month amount.
     """
     result = sanitize_query_params(year='abc', month='01')
     assert result == ('', '01')
@@ -315,7 +314,7 @@ def test_sanitize_query_params_wrong_month_not_number():
     """
     GIVEN Correct year param and month param as a text.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with empty string and year value.
+    THEN Result is tuple with empty string and year amount.
     """
     result = sanitize_query_params(year='2021', month='aws')
     assert result == ('2021', '')
@@ -323,9 +322,9 @@ def test_sanitize_query_params_wrong_month_not_number():
 
 def test_sanitize_query_params_wrong_month_out_of_range_up():
     """
-    GIVEN Correct year param and month value out of range.
+    GIVEN Correct year param and month amount out of range.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with empty string and year value.
+    THEN Result is tuple with empty string and year amount.
     """
     result = sanitize_query_params(year='2021', month='13')
     assert result == ('2021', '')
@@ -333,9 +332,9 @@ def test_sanitize_query_params_wrong_month_out_of_range_up():
 
 def test_sanitize_query_params_wrong_month_out_of_range_down():
     """
-    GIVEN Correct year param and month value out of range.
+    GIVEN Correct year param and month amount out of range.
     WHEN sanitize_query_params() fun is invoked.
-    THEN Result is tuple with empty string and year value.
+    THEN Result is tuple with empty string and year amount.
     """
     result = sanitize_query_params(year='2021', month='0')
     assert result == ('2021', '')

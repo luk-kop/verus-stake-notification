@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
+from unittest import mock
 
-from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions, VerusStakeChecker
+from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions, VerusStakeChecker, \
+    ApiGatewayCognito
 
 
 def test_process_exist(dummy_process):
@@ -284,3 +286,104 @@ def test_stake_transactions_get_new_stakes_txid_not_exist(dummy_stake_txs_collec
     new_stake_txids = [tx.txid for tx in new_stake_txs]
     assert new_stake_txids == []
 
+
+def test_api_gateway_cognito(dummy_api_env_data):
+    """
+    GIVEN dummy env_data
+    WHEN created ApiGatewayCognito object with specified env_data
+    THEN object's attributes data is equal to specified in env_data
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    assert api.cognito_token_url == dummy_api_env_data['COGNITO_TOKEN_URL']
+    assert api.cognito_client_id == dummy_api_env_data['COGNITO_CLIENT_ID']
+    assert api.cognito_client_secret == dummy_api_env_data['COGNITO_CLIENT_SECRET']
+    assert api.scopes == dummy_api_env_data['COGNITO_OAUTH_LIST_OF_SCOPES']
+    assert api.api_gateway_url == dummy_api_env_data['NOTIFICATION_API_URL']
+
+
+def test_api_gateway_cognito_check_response_status_200(mocker, dummy_api_env_data):
+    """
+    GIVEN ApiGatewayCognito object with dummy env_data
+    WHEN invoked _check_response_status() method with response status_code = 200
+    THEN None is returned
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    mocked_response_obj = mock.Mock()
+    mocked_response_obj.status_code = 200
+    assert api._check_response_status(mocked_response_obj) is None
+
+
+def test_api_gateway_cognito_check_response_status_not_200(mocker, dummy_api_env_data):
+    """
+    GIVEN ApiGatewayCognito object with dummy env_data
+    WHEN invoked _check_response_status() method with response status_code != 200
+    THEN sys.exit is called
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    mocked_response_obj = mock.Mock()
+    mocked_response_obj.status_code = 404
+    mocked_response_obj.text = 'Sth is wrong'
+    mocked_exit = mocker.patch('sys.exit')
+    api._check_response_status(response=mocked_response_obj)
+    # Assertions
+    mocked_exit.assert_called_once()
+    mocked_exit.assert_called()
+
+
+def test_api_gateway_cognito_check_response_status_not_200_logger(mocker, dummy_api_env_data):
+    """
+    GIVEN ApiGatewayCognito object with dummy env_data
+    WHEN invoked _check_response_status() method with response status_code != 200
+    THEN desired log entry is created
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    mocked_response_obj = mock.Mock()
+    mocked_response_obj.status_code = 404
+    mocked_response_obj.text = 'Sth is wrong'
+    mocker.patch('sys.exit')
+    mocked_logger = mocker.patch('new_stake_script.check_new_stake.logger')
+    desired_log_entry = f'API response: {mocked_response_obj.status_code} {mocked_response_obj.text}'
+    api._check_response_status(response=mocked_response_obj)
+    # Assertions
+    mocked_logger.error.assert_called_with(desired_log_entry)
+
+
+def test_api_gateway_cognito_get_access_token(mocker, dummy_api_env_data):
+    """
+    GIVEN ApiGatewayCognito object with dummy env_data
+    WHEN invoked _get_access_token() method
+    THEN valid access_token is returned
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    mocked_post = mocker.patch('requests.post', autospec=True)
+    mocked_response_obj = mock.Mock()
+    mocked_response_obj.status_code = 200
+    mocked_response_obj.json = lambda: {'access_token': 'valid-token'}
+    mocked_post.return_value = mocked_response_obj
+    # Mock requests.post
+    assert api._get_access_token() == 'valid-token'
+
+
+def test_api_gateway_cognito__check_http_method_not_allowed(mocker, dummy_api_env_data):
+    """
+    GIVEN ApiGatewayCognito object with dummy env_data
+    WHEN invoked _check_method_is_allowed() method with not-allowed HTTP method
+    THEN sys.exit is called
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    mocked_exit = mocker.patch('sys.exit')
+    api._check_http_method(method='PUT')
+    # Assertions
+    mocked_exit.assert_called_once()
+    mocked_exit.assert_called()
+
+
+def test_api_gateway_cognito_check_http_method_allowed(dummy_api_env_data):
+    """
+    GIVEN ApiGatewayCognito object with dummy env_data
+    WHEN invoked _check_method_is_allowed() method with allowed HTTP methods
+    THEN None is returned
+    """
+    api = ApiGatewayCognito(env_data=dummy_api_env_data)
+    for method in ['POST', 'GET', 'get', 'post']:
+        assert api._check_http_method(method=method) is None

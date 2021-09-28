@@ -229,7 +229,7 @@ def dummy_stake_data():
     stake_data = {
         'txid': 'qwerty123456',
         'time': 1234567890,
-        'value': 123.123
+        'amount': 123.123
     }
     return stake_data
 
@@ -256,7 +256,7 @@ def dummy_lambda_event_post():
         'body': {
             'txid': 'qwerty123456',
             'time': 1234567890,
-            'value': 123.123
+            'amount': 123.123
         },
         'http_method': 'POST'}
     return event_post
@@ -315,3 +315,18 @@ def dummy_list_txs():
         },
     ]
     return txs
+
+
+@fixture
+def dummy_api_env_data():
+    """
+    Return dummy env_data for ApiGatewayCognito class.
+    """
+    dummy_env_data = {
+        'COGNITO_TOKEN_URL': 'https://test-token.url',
+        'COGNITO_CLIENT_ID': '12345',
+        'COGNITO_CLIENT_SECRET': 'my-secret',
+        'COGNITO_OAUTH_LIST_OF_SCOPES': 'verus-api/api-test',
+        'NOTIFICATION_API_URL': 'https://test-notification.url'
+    }
+    return dummy_env_data
