@@ -12,6 +12,9 @@ terraform {
 provider "aws" {
   profile = var.profile
   region  = var.region
+  default_tags {
+    tags = var.resource_tags
+  }
 }
 
 locals {
@@ -38,7 +41,6 @@ resource "random_pet" "name" {
 # SNS config
 resource "aws_sns_topic" "verus_topic" {
   name = "verus-topic-${random_id.name.hex}"
-  tags = var.resource_tags
 }
 
 resource "aws_sns_topic_subscription" "verus_topic_subscription" {
@@ -50,7 +52,6 @@ resource "aws_sns_topic_subscription" "verus_topic_subscription" {
 # IAM role config
 resource "aws_iam_role" "verus_iam_role_for_lambda" {
   name                = "verus-lambda-to-sns-${random_id.name.hex}"
-  tags                = var.resource_tags
   assume_role_policy  = data.aws_iam_policy_document.verus_assume_role_policy.json
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
   inline_policy {
@@ -79,7 +80,6 @@ resource "aws_lambda_function" "verus_lambda" {
       DYNAMODB_VALUES_NAME = aws_dynamodb_table.verus_stakes_values_table.id
     }
   }
-  tags = var.resource_tags
 }
 
 resource "aws_lambda_permission" "verus_api_lambda" {
@@ -127,7 +127,6 @@ resource "aws_cognito_user_pool_client" "verus_cognito_client" {
 resource "aws_api_gateway_rest_api" "verus_api" {
   name        = "verus-api-gateway-${random_id.name.hex}"
   description = "Invoke Lambda function when a new stake appears in your Verus (VRSC) wallet."
-  tags        = var.resource_tags
 }
 
 resource "aws_api_gateway_resource" "verus_api" {
@@ -145,13 +144,13 @@ resource "aws_api_gateway_authorizer" "verus_auth" {
 
 # API Gateway - GET
 resource "aws_api_gateway_method" "verus_api_get" {
-  //  authorization        = "COGNITO_USER_POOLS"
-  authorization = "NONE"
-  //  authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
+  authorization        = "COGNITO_USER_POOLS"
+//  authorization = "NONE"
+  authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
   http_method = "GET"
   resource_id = aws_api_gateway_resource.verus_api.id
   rest_api_id = aws_api_gateway_rest_api.verus_api.id
-  //  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
 }
 
 resource "aws_api_gateway_integration" "verus_api_get" {
@@ -197,7 +196,7 @@ resource "aws_api_gateway_model" "verus_api_post_model" {
   name         = "StakePOST"
   description  = "JSON schema for stake POST method"
   content_type = "application/json"
-  schema = <<EOF
+  schema       = <<EOF
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "title" : "New Stake",
@@ -211,13 +210,13 @@ resource "aws_api_gateway_model" "verus_api_post_model" {
           "description": "Time of stake tx",
           "type": "integer"
       },
-      "value": {
-          "description": "Stake Value",
+      "amount": {
+          "description": "Stake amount",
           "type": "number",
           "minimum": 0
       }
   },
-  "required": ["txid", "time", "value"]
+  "required": ["txid", "time", "amount"]
 }
 EOF
 }
@@ -229,9 +228,9 @@ resource "aws_api_gateway_request_validator" "verus_api_post_validate_body" {
 }
 
 resource "aws_api_gateway_method" "verus_api_post" {
-  authorization = "NONE"
-  //  authorization = "COGNITO_USER_POOLS"
-  //  authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
+//  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
   http_method = "POST"
   resource_id = aws_api_gateway_resource.verus_api.id
   rest_api_id = aws_api_gateway_rest_api.verus_api.id
@@ -239,7 +238,7 @@ resource "aws_api_gateway_method" "verus_api_post" {
     "application/json" = aws_api_gateway_model.verus_api_post_model.name
   }
   request_validator_id = aws_api_gateway_request_validator.verus_api_post_validate_body.id
-  //  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
 }
 
 resource "aws_api_gateway_integration" "verus_api_post" {
@@ -316,7 +315,6 @@ resource "aws_dynamodb_table" "verus_stakes_txids_table" {
     name = "tx_id"
     type = "S"
   }
-  tags = var.resource_tags
 }
 
 resource "aws_dynamodb_table" "verus_stakes_values_table" {
@@ -329,7 +327,6 @@ resource "aws_dynamodb_table" "verus_stakes_values_table" {
     name = "ts_id"
     type = "S"
   }
-  tags = var.resource_tags
 }
 
 # Data config
