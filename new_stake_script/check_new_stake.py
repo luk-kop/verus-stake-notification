@@ -86,13 +86,14 @@ class VerusStakeChecker:
             api = ApiGatewayCognito(env_data=env_data)
             new_stake_txs = self._get_wallet_new_stake_txs()
             for tx in new_stake_txs:
-                tx_timestamp = tx.time
-                tx_stake_amount = tx.amount
-                tx_address = tx.address
-                txid = tx.txid
-                api.call()
-                tx_timestamp_user_friendly_format = datetime.fromtimestamp(tx_timestamp).strftime('%Y-%m-%d %H:%M:%SLT')
-                logger.info(f'New stake in wallet at {tx_timestamp_user_friendly_format}')
+                data_to_post = {
+                    'txid': tx.txid,
+                    'time': tx.time,
+                    'amount': tx.amount
+                }
+                api.call(method='post', data=data_to_post)
+                tx_timestamp_format = datetime.fromtimestamp(data_to_post['time']).strftime('%Y-%m-%d %H:%M:%SLT')
+                logger.info(f'New stake in wallet at {tx_timestamp_format}')
             self._update_stake_txid()
             self._store_new_tx_data()
             return
@@ -341,18 +342,32 @@ class ApiGatewayCognito:
         self.scopes = env_data['COGNITO_OAUTH_LIST_OF_SCOPES']
         self.api_gateway_url = env_data['NOTIFICATION_API_URL']
 
-    def call(self) -> None:
+    def call(self, method: str, data: dict) -> None:
         """
         Method triggers the API Gateway endpoint with access token as the value of the Authorization header.
         """
-        access_token = self.get_access_token()
+        self._check_http_method(method=method)
+        access_token = self._get_access_token()
         headers = {
             'Authorization': access_token
         }
-        response = requests.get(self.api_gateway_url, headers=headers)
-        self.check_response_status(response)
+        if method.lower() == 'get':
+            # data = {'year': '2021', 'month': '11'}
+            response = requests.get(self.api_gateway_url, headers=headers, params=data)
+            # return response.json()['body']
+        else:
+            response = requests.post(self.api_gateway_url, headers=headers, json=data)
+        self._check_response_status(response)
 
-    def get_access_token(self) -> str:
+    def _check_http_method(self, method: str) -> None:
+        """
+        Check whether the HTTP method is allowed for API call.
+        """
+        if method.lower() not in ['post', 'get']:
+            logger.error(f'API response: {method} is not allowed HTTP method')
+            sys.exit()
+
+    def _get_access_token(self) -> str:
         """
         Method retrieves the access token from Amazon Cognito authorization server.
         """
@@ -369,19 +384,29 @@ class ApiGatewayCognito:
             auth=(self.cognito_client_id, self.cognito_client_secret),
             headers=headers
         )
-        self.check_response_status(response)
+        self._check_response_status(response)
         return response.json()['access_token']
 
-    def check_response_status(self, response) -> None:
+    def _check_response_status(self, response) -> None:
         """
         Exit script when response status code different than 200.
         """
         if response.status_code != 200:
             response_text = (response.text[:87] + '...') if len(response.text) > 90 else response.text
-            logger.error(f'API response: {response.code} {response_text}')
+            logger.error(f'API response: {response.status_code} {response_text}')
             sys.exit()
 
 
 if __name__ == '__main__':
     verus_check = VerusStakeChecker()
-    verus_check.run()
+    # verus_check.run()
+    env_data = verus_check._load_env_data()
+    api = ApiGatewayCognito(env_data)
+    data_to_post = {
+        'txid': 'tx02',
+        'time': 123480,
+        'amount': 12.0
+    }
+    data_to_get = {}
+    # api.call(method='post', data=data_to_post)
+    api.call(method='get', data=data_to_get)
