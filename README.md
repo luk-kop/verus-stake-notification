@@ -49,6 +49,7 @@ Other prerequisites:
 ## Build and run the application
 
 The project creation process is divided into two phases:
+> **Note:** Bulding AWS infrastructure with `boto3` package is under development, at this moment it is recommended to use `Terraform` tool.
 1. Deployment of the AWS resources (infrastructure) with `boto3` package or `Terraform` tool.
 2. Setup script for monitoring the VRSC wallet.
 > :warning: **Note:** It is recommended to build the AWS infrastructure on a different host (fe. locally) than the one running the VRSC wallet. 
