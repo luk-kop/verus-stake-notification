@@ -65,13 +65,28 @@ resource "aws_iam_role" "verus_iam_role_for_lambda" {
 }
 
 # Lambda config
-resource "aws_lambda_function" "verus_lambda" {
-  filename         = data.archive_file.lambda_zip.output_path
-  function_name    = "verus-lambda-func-${random_id.name.hex}"
-  description      = "Publish a msg to SNS topic when new stake appears in Verus wallet."
+resource "aws_lambda_function" "verus_lambda_get" {
+  filename         = data.archive_file.lambda_get_zip.output_path
+  function_name    = "verus-lambda-func-get-${random_id.name.hex}"
+  description      = "Returns the number of stakes and their total value for the selected time period."
   role             = aws_iam_role.verus_iam_role_for_lambda.arn
-  handler          = "lambda_function.lambda_handler"
-  source_code_hash = filebase64sha256(data.archive_file.lambda_zip.output_path)
+  handler          = "lambda_function_get.lambda_handler_get"
+  source_code_hash = filebase64sha256(data.archive_file.lambda_get_zip.output_path)
+  runtime          = "python3.8"
+  environment {
+    variables = {
+      DYNAMODB_VALUES_NAME = aws_dynamodb_table.verus_stakes_values_table.id
+    }
+  }
+}
+
+resource "aws_lambda_function" "verus_lambda_post" {
+  filename         = data.archive_file.lambda_post_zip.output_path
+  function_name    = "verus-lambda-func-post-${random_id.name.hex}"
+  description      = "Put data to DynamDB and publish a msg to SNS topic when new stake appears in Verus wallet."
+  role             = aws_iam_role.verus_iam_role_for_lambda.arn
+  handler          = "lambda_function_post.lambda_handler_post"
+  source_code_hash = filebase64sha256(data.archive_file.lambda_post_zip.output_path)
   runtime          = "python3.8"
   environment {
     variables = {
@@ -82,10 +97,19 @@ resource "aws_lambda_function" "verus_lambda" {
   }
 }
 
-resource "aws_lambda_permission" "verus_api_lambda" {
+resource "aws_lambda_permission" "verus_api_lambda_get" {
   statement_id  = "allow-execution-from-apigateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.verus_lambda.function_name
+  function_name = aws_lambda_function.verus_lambda_get.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/*/*"
+  //  source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/${aws_api_gateway_method.verus_api_get.http_method}${aws_api_gateway_resource.verus_api.path}"
+}
+
+resource "aws_lambda_permission" "verus_api_lambda_post" {
+  statement_id  = "allow-execution-from-apigateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.verus_lambda_post.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/*/*"
   //  source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/${aws_api_gateway_method.verus_api_get.http_method}${aws_api_gateway_resource.verus_api.path}"
@@ -159,7 +183,7 @@ resource "aws_api_gateway_integration" "verus_api_get" {
   rest_api_id             = aws_api_gateway_rest_api.verus_api.id
   integration_http_method = "POST"
   type                    = "AWS"
-  uri                     = aws_lambda_function.verus_lambda.invoke_arn
+  uri                     = aws_lambda_function.verus_lambda_get.invoke_arn
   connection_type         = "INTERNET"
   passthrough_behavior    = "WHEN_NO_TEMPLATES"
   request_templates = {
@@ -247,7 +271,7 @@ resource "aws_api_gateway_integration" "verus_api_post" {
   rest_api_id             = aws_api_gateway_rest_api.verus_api.id
   integration_http_method = "POST"
   type                    = "AWS"
-  uri                     = aws_lambda_function.verus_lambda.invoke_arn
+  uri                     = aws_lambda_function.verus_lambda_post.invoke_arn
   connection_type         = "INTERNET"
   passthrough_behavior    = "NEVER"
   request_templates = {
@@ -330,11 +354,18 @@ resource "aws_dynamodb_table" "verus_stakes_values_table" {
 }
 
 # Data config
-data "archive_file" "lambda_zip" {
+data "archive_file" "lambda_get_zip" {
   type             = "zip"
-  source_file      = "${path.module}/../lambda_function.py"
+  source_file      = "${path.module}/../lambda_function_get.py"
   output_file_mode = "0666"
-  output_path      = "${path.module}/files/lambda_function_payload.zip"
+  output_path      = "${path.module}/files/lambda_function_get_payload.zip"
+}
+
+data "archive_file" "lambda_post_zip" {
+  type             = "zip"
+  source_file      = "${path.module}/../lambda_function_post.py"
+  output_file_mode = "0666"
+  output_path      = "${path.module}/files/lambda_function_post_payload.zip"
 }
 
 data "aws_iam_policy_document" "verus_role_inline_policy_sns" {
