@@ -1,8 +1,9 @@
 from datetime import date
 import json
 
-from lambda_function import check_str_is_number, sanitize_query_params, get_timestamp_id, put_stake_txids_db, \
-    put_stake_values_db, get_db_item, update_db_item, lambda_handler
+from lambda_function_post import get_timestamp_id, put_stake_txids_db, put_stake_values_db, get_db_item, \
+    update_db_item, lambda_handler_post
+from lambda_function_get import check_str_is_number, sanitize_query_params, lambda_handler_get
 
 
 def test_item_not_exist_in_stake_txids_db(aws_dummy_stake_txids_table):
@@ -163,7 +164,7 @@ def test_lambda_handler_get_request(aws_dummy_dynamodb_both_tables, dummy_lambda
     WHEN Executing the lambda_handler() func.
     THEN Desired func return.
     """
-    response_test = lambda_handler(event=dummy_lambda_event_get, context={})
+    response_test = lambda_handler_get(event=dummy_lambda_event_get, context={})
     response_desired = {
         'timeframe': '2011-11',
         'stakes_count': 0,
@@ -182,7 +183,7 @@ def test_lambda_handler_post_request(aws_dummy_dynamodb_both_tables, dummy_lambd
     WHEN Executing the lambda_handler() func.
     THEN Desired func return.
     """
-    response_test = lambda_handler(event=dummy_lambda_event_post, context={})
+    response_test = lambda_handler_post(event=dummy_lambda_event_post, context={})
     response_desired = {
         'statusCode': 200,
         'body': json.dumps('Tables updated and notification sent!')
