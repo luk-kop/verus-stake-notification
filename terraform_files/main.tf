@@ -50,8 +50,8 @@ resource "aws_sns_topic_subscription" "verus_topic_subscription" {
 }
 
 # IAM role config
-resource "aws_iam_role" "verus_iam_role_for_lambda" {
-  name                = "verus-lambda-to-sns-${random_id.name.hex}"
+resource "aws_iam_role" "verus_iam_role_for_lambda_post" {
+  name                = "verus-lambda-post-${random_id.name.hex}"
   assume_role_policy  = data.aws_iam_policy_document.verus_assume_role_policy.json
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
   inline_policy {
@@ -59,8 +59,18 @@ resource "aws_iam_role" "verus_iam_role_for_lambda" {
     policy = data.aws_iam_policy_document.verus_role_inline_policy_sns.json
   }
   inline_policy {
-    name   = "verus-lambda-dynamodb-inline"
-    policy = data.aws_iam_policy_document.verus_role_inline_policy_dynamodb.json
+    name   = "verus-lambda-dynamodb-post-inline"
+    policy = data.aws_iam_policy_document.verus_role_inline_policy_dynamodb_post.json
+  }
+}
+
+resource "aws_iam_role" "verus_iam_role_for_lambda_get" {
+  name                = "verus-lambda-get-${random_id.name.hex}"
+  assume_role_policy  = data.aws_iam_policy_document.verus_assume_role_policy.json
+  managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+  inline_policy {
+    name   = "verus-lambda-dynamodb-get-inline"
+    policy = data.aws_iam_policy_document.verus_role_inline_policy_dynamodb_get.json
   }
 }
 
@@ -69,7 +79,7 @@ resource "aws_lambda_function" "verus_lambda_get" {
   filename         = data.archive_file.lambda_get_zip.output_path
   function_name    = "verus-lambda-func-get-${random_id.name.hex}"
   description      = "Returns the number of stakes and their total value for the selected time period."
-  role             = aws_iam_role.verus_iam_role_for_lambda.arn
+  role             = aws_iam_role.verus_iam_role_for_lambda_get.arn
   handler          = "lambda_function_get.lambda_handler_get"
   source_code_hash = filebase64sha256(data.archive_file.lambda_get_zip.output_path)
   runtime          = "python3.8"
@@ -84,7 +94,7 @@ resource "aws_lambda_function" "verus_lambda_post" {
   filename         = data.archive_file.lambda_post_zip.output_path
   function_name    = "verus-lambda-func-post-${random_id.name.hex}"
   description      = "Put data to DynamDB and publish a msg to SNS topic when new stake appears in Verus wallet."
-  role             = aws_iam_role.verus_iam_role_for_lambda.arn
+  role             = aws_iam_role.verus_iam_role_for_lambda_post.arn
   handler          = "lambda_function_post.lambda_handler_post"
   source_code_hash = filebase64sha256(data.archive_file.lambda_post_zip.output_path)
   runtime          = "python3.8"
@@ -386,15 +396,23 @@ data "aws_iam_policy_document" "verus_assume_role_policy" {
   }
 }
 
-data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb" {
+data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb_post" {
   statement {
     sid       = "PutItemToVerusStakesTxidsTable"
     actions   = ["dynamodb:PutItem"]
     resources = [aws_dynamodb_table.verus_stakes_txids_table.arn]
   }
   statement {
-    sid       = "PutGetUpdateItemIoVerusStakesValuesTable"
+    sid       = "PutGetUpdateItemToVerusStakesValuesTable"
     actions   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.verus_stakes_values_table.arn]
+  }
+}
+
+data "aws_iam_policy_document" "verus_role_inline_policy_dynamodb_get" {
+  statement {
+    sid       = "GetItemFromVerusStakesValuesTable"
+    actions   = ["dynamodb:GetItem"]
     resources = [aws_dynamodb_table.verus_stakes_values_table.arn]
   }
 }
