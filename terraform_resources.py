@@ -3,10 +3,10 @@ import os
 import subprocess
 import json
 import sys
-from pathlib import Path
-from typing import Union
 
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
+
+from utils import EnvApiFile, get_env_path
 
 
 def store_terraform_output() -> None:
@@ -16,38 +16,22 @@ def store_terraform_output() -> None:
     """
     try:
         terraform_output_data_json = subprocess.getoutput('terraform output -json')
-        terraform_output_data_dict = json.loads(terraform_output_data_json)
-        data_to_store ={
-            'NOTIFICATION_API_URL': terraform_output_data_dict['api_url']['value'],
-            'COGNITO_CLIENT_ID': terraform_output_data_dict['cognito_client_id']['value'],
-            'COGNITO_CLIENT_SECRET': terraform_output_data_dict['cognito_client_secret']['value'],
-            'COGNITO_TOKEN_URL': terraform_output_data_dict['cognito_token_url']['value']
-        }
-        cognito_scopes_list = terraform_output_data_dict['cognito_scopes']['value']
-        # A space-separated list of scopes to request for the generated access token
-        if len(cognito_scopes_list) == 1:
-            data_to_store['COGNITO_OAUTH_LIST_OF_SCOPES'] = cognito_scopes_list[0]
-        else:
-            data_to_store['COGNITO_OAUTH_LIST_OF_SCOPES'] = ' '.join(cognito_scopes_list)
+        terraform_output_data: dict = json.loads(terraform_output_data_json)
+        cognito_scopes_list: list = terraform_output_data['cognito_scopes']['value']
+        # Initialize .env-api file
+        env_api_file = EnvApiFile(
+            notification_api_url=terraform_output_data['api_url']['value'],
+            cognito_client_id=terraform_output_data['cognito_client_id']['value'],
+            cognito_client_secret=terraform_output_data['cognito_client_secret']['value'],
+            cognito_token_url=terraform_output_data['cognito_token_url']['value'],
+            cognito_oauth_list_of_scopes=cognito_scopes_list
+        )
     except (json.decoder.JSONDecodeError, KeyError, AttributeError):
         print('Issue with terraform output. Exiting the script...')
         sys.exit()
-    os.chdir('..')
     # Write terraform output data to .env-api file.
     print('Store terraform output data to .env-api file')
-    for data_key, data_value in data_to_store.items():
-        set_key(dotenv_path='new_stake_script/.env-api', key_to_set=data_key, value_to_set=data_value)
-
-
-def get_env_path() -> Union[None, str]:
-    """
-    Return .env file path if exists.
-    """
-    path = Path(__file__).resolve().parent.joinpath('.env')
-    if not path.exists() or not path.is_file():
-        print(f'File {path} not exists!')
-        sys.exit()
-    return path
+    env_api_file.store()
 
 
 def build_resources_wrapper(command_params: dict) -> None:
@@ -76,6 +60,9 @@ def destroy_resources_wrapper() -> None:
     options = ['terraform', 'destroy']
     # Run 'terraform destroy'
     subprocess.run(args=options)
+    # Clear .env-api file
+    print('Clearing data in .env-api file...')
+    EnvApiFile().store()
 
 
 if __name__ == '__main__':
