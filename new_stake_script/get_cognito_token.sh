@@ -35,32 +35,40 @@ for env_var in "${!env_var_dict[@]}"; do
 done
 
 get_access_token() {
+  # Declare local vars
+  local cognito_api_response
+  local client_data_base64
+  local access_token
   # Base64 encode
-  local client_data_base64="$(echo -n "$COGNITO_CLIENT_ID:$COGNITO_CLIENT_SECRET" | openssl base64)"
-  local response=$(curl --silent --request POST \
-    --header 'Content-Type: application/x-www-form-urlencoded' \
-    --header "Authorization: Basic $(echo $client_data_base64)" \
-    --data-urlencode 'grant_type=client_credentials' \
-    --data-urlencode "scope=$(echo $COGNITO_OAUTH_LIST_OF_SCOPES)" \
-    $COGNITO_TOKEN_URL)
-
+  client_data_base64="$(echo -n "${COGNITO_CLIENT_ID}:${COGNITO_CLIENT_SECRET}" | openssl base64 -A)"
+  cognito_api_response=$(curl --silent --request POST \
+    --header "Content-Type: application/x-www-form-urlencoded" \
+    --header "Authorization: Basic ${client_data_base64}" \
+    --data-urlencode "grant_type=client_credentials" \
+    --data-urlencode "scope=${COGNITO_OAUTH_LIST_OF_SCOPES}" \
+    "$COGNITO_TOKEN_URL")
   # Check whether "access_token" key is in API response
-  if [[ ! $response == *"access_token"* ]]; then
+  if [[ ! $cognito_api_response == *"access_token"* ]]; then
     return 1
   fi
-
-  #  local access_token="$(echo $response | jq --raw-output '.access_token')"
-  local access_token="$(echo $response | python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')"
-  echo $access_token
+  # access_token="$(echo $response | jq --raw-output '.access_token')"
+  access_token="$(echo "$cognito_api_response" | python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')"
+  echo "$access_token"
 #  return 0
 }
 
 call_api() {
   local token=$1
+  local year_qp=$2
+  local month_qp=$3
   echo
   echo "API Gateway response:"
-  curl --silent --header "Authorization: $(echo $token)" $NOTIFICATION_API_URL | python3 -m json.tool
-  echo
+  # API call with date query params
+  curl --silent --get \
+    --header "Authorization: ${token}" \
+    --data year="${year_qp}" \
+    --data month="${month_qp}" \
+    "$NOTIFICATION_API_URL" | python3 -m json.tool
 }
 
 check_exit_code() {
@@ -83,23 +91,42 @@ echo '
 '
 echo "1. Get Cognito Access Token"
 echo "2. Get Cognito Access Token and call API Gateway"
-echo
-read -p ">>> " user_choice
+read -rp ">>> " user_choice
 echo
 case $user_choice in
 1)
   token=$(get_access_token)
   check_exit_code $?
+  echo
   echo "Cognito Access Token:"
-  echo $token
+  echo "$token"
   echo
   ;;
 2)
+  current_year=$(date +%Y)
+  while true; do
+    echo "Enter date in format YYYY-MM or YYYY [$current_year]"
+    read -rp ">>> " input_date
+    # Default option
+    if [ -z "$input_date" ]; then
+      input_date=$current_year
+      break
+    # Check whether input date is in desired format: YYYY or YYYY-MM
+    # Allowed date range - year: 2000-2099, month: 01-12
+    elif [[ $input_date =~ ^20[0-9]{2}-((0[1-9])|(1[0-2]))$ ]] || [[ $input_date =~ ^20[0-9]{2}$ ]]; then
+      break
+    fi
+    echo "*** Error: Wrong date format - try again! ***"
+    echo
+  done
+  # Create date array
+  date_array=( $(echo "$input_date" | awk -F- '{ print $1,$2 }') )
   token=$(get_access_token)
   check_exit_code $?
+  echo
   echo "Cognito Access Token:"
-  echo $token
-  call_api $token
+  echo "$token"
+  call_api "$token" "${date_array[0]}" "${date_array[1]}"
   echo
   ;;
 esac
