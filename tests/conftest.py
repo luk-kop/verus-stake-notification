@@ -337,7 +337,7 @@ def dummy_api_env_data():
         'COGNITO_TOKEN_URL': 'https://test-token.url',
         'COGNITO_CLIENT_ID': '12345',
         'COGNITO_CLIENT_SECRET': 'my-secret',
-        'COGNITO_OAUTH_LIST_OF_SCOPES': 'verus-api/api-test',
+        'COGNITO_CUSTOM_SCOPES': 'verus-api/api-test',
         'NOTIFICATION_API_URL': 'https://test-notification.url'
     }
     return dummy_env_data

@@ -112,7 +112,7 @@ class VerusStakeChecker:
             'NOTIFICATION_API_URL',
             'COGNITO_CLIENT_ID',
             'COGNITO_CLIENT_SECRET',
-            'COGNITO_OAUTH_LIST_OF_SCOPES',
+            'COGNITO_CUSTOM_SCOPES',
             'COGNITO_TOKEN_URL'
         ]
         for env in env_required:
@@ -339,7 +339,7 @@ class ApiGatewayCognito:
         self.cognito_token_url = env_data['COGNITO_TOKEN_URL']
         self.cognito_client_id = env_data['COGNITO_CLIENT_ID']
         self.cognito_client_secret = env_data['COGNITO_CLIENT_SECRET']
-        self.scopes = env_data['COGNITO_OAUTH_LIST_OF_SCOPES']
+        self.scopes = env_data['COGNITO_CUSTOM_SCOPES']
         self.api_gateway_url = env_data['NOTIFICATION_API_URL']
 
     def call(self, method: str, data: dict) -> None:
@@ -355,7 +355,7 @@ class ApiGatewayCognito:
             if method.lower() == 'get':
                 # data = {'year': '2021', 'month': '11'}
                 response = requests.get(self.api_gateway_url, headers=headers, params=data)
-                # return response.json()['body']
+                return response.json()['body']
             else:
                 response = requests.post(self.api_gateway_url, headers=headers, json=data)
         except requests.exceptions.RequestException:
@@ -409,11 +409,11 @@ if __name__ == '__main__':
     verus_check = VerusStakeChecker()
 
     # Run Verus check
-    # verus_check.run()
+    verus_check.run()
 
     # Only for API tests
-    env_data = verus_check._load_env_data()
-    api = ApiGatewayCognito(env_data)
+    # env_data = verus_check._load_env_data()
+    # api = ApiGatewayCognito(env_data)
     data_post = {
         'txid': 'tx02',
         'time': 123480,
@@ -434,4 +434,4 @@ if __name__ == '__main__':
     # api.call(method='post', data=data_post)
     # API GET calls
     # for data in data_get:
-    #     api.call(method='get', data=data)
+    #     print(api.call(method='get', data=data))

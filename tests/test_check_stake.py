@@ -297,7 +297,7 @@ def test_api_gateway_cognito(dummy_api_env_data):
     assert api.cognito_token_url == dummy_api_env_data['COGNITO_TOKEN_URL']
     assert api.cognito_client_id == dummy_api_env_data['COGNITO_CLIENT_ID']
     assert api.cognito_client_secret == dummy_api_env_data['COGNITO_CLIENT_SECRET']
-    assert api.scopes == dummy_api_env_data['COGNITO_OAUTH_LIST_OF_SCOPES']
+    assert api.scopes == dummy_api_env_data['COGNITO_CUSTOM_SCOPES']
     assert api.api_gateway_url == dummy_api_env_data['NOTIFICATION_API_URL']
 
 

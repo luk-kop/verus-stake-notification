@@ -27,7 +27,7 @@ class EnvApiFile:
     cognito_client_id: str = ''
     cognito_client_secret: str = ''
     cognito_token_url: str = ''
-    cognito_oauth_list_of_scopes: Union[list, str] = ''
+    cognito_custom_scopes: Union[list, str] = ''
 
     @property
     def _filename_path(self):
@@ -48,10 +48,10 @@ class EnvApiFile:
             'COGNITO_TOKEN_URL': self.cognito_token_url,
         }
         # A space-separated list of scopes to request for the generated access token
-        if len(self.cognito_oauth_list_of_scopes) == 1:
-            data_to_store['COGNITO_OAUTH_LIST_OF_SCOPES'] = self.cognito_oauth_list_of_scopes[0]
+        if len(self.cognito_custom_scopes) == 1:
+            data_to_store['COGNITO_CUSTOM_SCOPES'] = self.cognito_custom_scopes[0]
         else:
-            data_to_store['COGNITO_OAUTH_LIST_OF_SCOPES'] = ' '.join(self.cognito_oauth_list_of_scopes)
+            data_to_store['COGNITO_CUSTOM_SCOPES'] = ' '.join(self.cognito_custom_scopes)
         return data_to_store
 
     def store(self) -> None:
@@ -69,4 +69,4 @@ class EnvApiFile:
         self.cognito_client_id = ''
         self.cognito_client_secret = ''
         self.cognito_token_url = ''
-        self.cognito_oauth_list_of_scopes = ''
+        self.cognito_custom_of_scopes = ''

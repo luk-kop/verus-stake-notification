@@ -22,7 +22,7 @@ env_var_dict["NOTIFICATION_API_URL"]="$NOTIFICATION_API_URL"
 env_var_dict["COGNITO_CLIENT_ID"]="$COGNITO_CLIENT_ID"
 env_var_dict["COGNITO_CLIENT_SECRET"]="$COGNITO_CLIENT_SECRET"
 env_var_dict["COGNITO_TOKEN_URL"]="$COGNITO_TOKEN_URL"
-env_var_dict["COGNITO_OAUTH_LIST_OF_SCOPES"]="$COGNITO_OAUTH_LIST_OF_SCOPES"
+env_var_dict["COGNITO_CUSTOM_SCOPES"]="$COGNITO_CUSTOM_SCOPES"
 
 # Check whether all necessary env variables are specified in $env_file_path file
 for env_var in "${!env_var_dict[@]}"; do
@@ -45,7 +45,7 @@ get_access_token() {
     --header "Content-Type: application/x-www-form-urlencoded" \
     --header "Authorization: Basic ${client_data_base64}" \
     --data-urlencode "grant_type=client_credentials" \
-    --data-urlencode "scope=${COGNITO_OAUTH_LIST_OF_SCOPES}" \
+    --data-urlencode "scope=${COGNITO_CUSTOM_SCOPES}" \
     "$COGNITO_TOKEN_URL")
   # Check whether "access_token" key is in API response
   if [[ ! $cognito_api_response == *"access_token"* ]]; then
@@ -90,7 +90,7 @@ echo '
                                          /_/
 '
 echo "1. Get Cognito Access Token"
-echo "2. Get Cognito Access Token and call API Gateway"
+echo "2. Get Cognito Access Token and call API Gateway with GET method"
 read -rp ">>> " user_choice
 echo
 case $user_choice in

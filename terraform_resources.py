@@ -24,7 +24,7 @@ def store_terraform_output() -> None:
             cognito_client_id=terraform_output_data['cognito_client_id']['value'],
             cognito_client_secret=terraform_output_data['cognito_client_secret']['value'],
             cognito_token_url=terraform_output_data['cognito_token_url']['value'],
-            cognito_oauth_list_of_scopes=cognito_scopes_list
+            cognito_custom_scopes=cognito_scopes_list
         )
     except (json.decoder.JSONDecodeError, KeyError, AttributeError):
         print('Issue with terraform output. Exiting the script...')

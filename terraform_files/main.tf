@@ -137,8 +137,8 @@ resource "aws_cognito_resource_server" "verus_cognito_resource_server" {
   identifier = "verus-api"
   name       = "verus-api-resource-server"
   scope {
-    scope_name        = "api-read"
-    scope_description = "Read access to the API"
+    scope_name        = "access"
+    scope_description = "Retrieve or update VRSC stakes data"
   }
   user_pool_id = aws_cognito_user_pool.verus_cognito_pool.id
 }
@@ -178,12 +178,12 @@ resource "aws_api_gateway_authorizer" "verus_auth" {
 
 # API Gateway - GET
 resource "aws_api_gateway_method" "verus_api_get" {
-  authorization        = "COGNITO_USER_POOLS"
-//  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  //  authorization = "NONE"
   authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
-  http_method = "GET"
-  resource_id = aws_api_gateway_resource.verus_api.id
-  rest_api_id = aws_api_gateway_rest_api.verus_api.id
+  http_method          = "GET"
+  resource_id          = aws_api_gateway_resource.verus_api.id
+  rest_api_id          = aws_api_gateway_rest_api.verus_api.id
   authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
 }
 
@@ -225,6 +225,20 @@ resource "aws_api_gateway_integration_response" "verus_api_integration_response_
 }
 
 # API Gateway - POST
+resource "aws_api_gateway_method" "verus_api_post" {
+  //  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.verus_auth.id
+  http_method   = "POST"
+  resource_id   = aws_api_gateway_resource.verus_api.id
+  rest_api_id   = aws_api_gateway_rest_api.verus_api.id
+  request_models = {
+    "application/json" = aws_api_gateway_model.verus_api_post_model.name
+  }
+  request_validator_id = aws_api_gateway_request_validator.verus_api_post_validate_body.id
+  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+}
+
 resource "aws_api_gateway_model" "verus_api_post_model" {
   rest_api_id  = aws_api_gateway_rest_api.verus_api.id
   name         = "StakePOST"
@@ -259,20 +273,6 @@ resource "aws_api_gateway_request_validator" "verus_api_post_validate_body" {
   name                  = "POST-body-validator"
   rest_api_id           = aws_api_gateway_rest_api.verus_api.id
   validate_request_body = true
-}
-
-resource "aws_api_gateway_method" "verus_api_post" {
-//  authorization = "NONE"
-  authorization = "COGNITO_USER_POOLS"
-  authorizer_id        = aws_api_gateway_authorizer.verus_auth.id
-  http_method = "POST"
-  resource_id = aws_api_gateway_resource.verus_api.id
-  rest_api_id = aws_api_gateway_rest_api.verus_api.id
-  request_models = {
-    "application/json" = aws_api_gateway_model.verus_api_post_model.name
-  }
-  request_validator_id = aws_api_gateway_request_validator.verus_api_post_validate_body.id
-  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
 }
 
 resource "aws_api_gateway_integration" "verus_api_post" {
