@@ -122,7 +122,7 @@ resource "aws_lambda_permission" "verus_api_lambda_post" {
   function_name = aws_lambda_function.verus_lambda_post.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/*/*"
-  //  source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/${aws_api_gateway_method.verus_api_get.http_method}${aws_api_gateway_resource.verus_api.path}"
+  //  source_arn    = "${aws_api_gateway_rest_api.verus_api.execution_arn}/*/${aws_api_gateway_method.verus_api_post.http_method}${aws_api_gateway_resource.verus_api.path}"
 }
 
 # Cognito config

@@ -63,11 +63,11 @@ class VerusStakeChecker:
     """
     The class responsible for checking to confirm that a new stake has appeared in Verus wallet.
     """
-    def __init__(self, txcount_history_file_name: str = 'tx_history.json') -> None:
+    def __init__(self, txcount_history_filename: str = 'tx_history.json', env_api_filename: str = '.env-api') -> None:
         self.verus_process = VerusProcess()
         self.verus_script_name = 'verus'
-        # Transactions (txs) history file is stored in the same dir as this script.
-        self.txcount_history_file_path = Path(__file__).resolve().parent.joinpath(txcount_history_file_name)
+        self.txcount_history_filename = txcount_history_filename
+        self.env_api_filename = env_api_filename
         self.wallet_info = self._get_wallet_info()
         self.tx_hist_data = self._read_tx_hist_file()
         self.stake_txs = StakeTransactions()
@@ -103,7 +103,7 @@ class VerusStakeChecker:
         """
         Load API environment variables from .env-api.
         """
-        env_path = Path(__file__).resolve().parent.joinpath('.env-api')
+        env_path = self.env_api_file_path
         if not env_path.exists() or not env_path.is_file():
             logger.error(f'File {env_path} not exists!')
             sys.exit()
@@ -127,6 +127,22 @@ class VerusStakeChecker:
         Return verus script absolute path.
         """
         return Path(self.verus_process.directory).joinpath(self.verus_script_name)
+
+    @property
+    def txcount_history_file_path(self):
+        """
+        Return transactions (txs) history file absolute path.
+        Transactions (txs) history file is stored in the same dir as this script.
+        """
+        return Path(__file__).resolve().parent.joinpath(self.txcount_history_filename)
+
+    @property
+    def env_api_file_path(self):
+        """
+        Return API env vars file absolute path.
+        File with API env vars is stored in the same dir as this script.
+        """
+        return Path(__file__).resolve().parent.joinpath(self.env_api_filename)
 
     @property
     def _initial_tx_history_file_content(self) -> dict:
@@ -407,31 +423,5 @@ class ApiGatewayCognito:
 
 if __name__ == '__main__':
     verus_check = VerusStakeChecker()
-
     # Run Verus check
     verus_check.run()
-
-    # Only for API tests
-    # env_data = verus_check._load_env_data()
-    # api = ApiGatewayCognito(env_data)
-    data_post = {
-        'txid': 'tx02',
-        'time': 123480,
-        'amount': 12.0
-    }
-
-    data_get = [
-        {},
-        {
-            'year': '2021'
-        },
-        {
-            'year': '2021',
-            'month': '09'
-        }
-    ]
-    # API POST call
-    # api.call(method='post', data=data_post)
-    # API GET calls
-    # for data in data_get:
-    #     print(api.call(method='get', data=data))
