@@ -10,13 +10,36 @@ from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker, \
 from resources.aws_policy_document import PolicyStatement
 
 
-def create_dummy_processes():
+def create_dummy_processes() -> tuple:
     """
     Create dummy 'sleep' process and dummy 'VerusProcess'.
     """
     process_dummy = Popen(['sleep', '10'])
     process_dummy_name = Process(process_dummy.pid).name()
     return process_dummy, VerusProcess(name=process_dummy_name)
+
+
+def dummy_env_api_file_content() -> dict:
+    """
+    Return dummy env api file content.
+    """
+    dummy_env_data = {
+        'COGNITO_TOKEN_URL': 'https://test-token.url',
+        'COGNITO_CLIENT_ID': '12345',
+        'COGNITO_CLIENT_SECRET': 'my-secret',
+        'COGNITO_CUSTOM_SCOPES': 'verus-api/api-test',
+        'NOTIFICATION_API_URL': 'https://test-notification.url'
+    }
+    return dummy_env_data
+
+
+def create_dummy_env_api_file(file_path: str) -> None:
+    """
+    Create dummy env api file.
+    """
+    file_content = [f'{key}={value}\n' for key, value in dummy_env_api_file_content().items()]
+    with open(file_path, 'w') as file:
+        file.writelines(file_content)
 
 
 @fixture
@@ -46,15 +69,22 @@ def verus_stake_checker():
     """
     Create VerusStakeChecker() object with custom transactions (txs) history file.
     """
-    filename = 'tx_history_test.json'
-    stake_checker = VerusStakeChecker(txcount_history_file_name=filename)
-    filename_path = stake_checker.txcount_history_file_path
+    file_tx_hist = 'tx_history_test.json'
+    file_api_env = '.api-env-test'
+    stake_checker = VerusStakeChecker(txcount_history_filename=file_tx_hist, env_api_filename=file_api_env)
     # Setup dummy processes
     process_dummy, process_to_test = create_dummy_processes()
     stake_checker.verus_process = process_to_test
+    # Get dummy test files absolute path
+    file_tx_hist_path = stake_checker.txcount_history_file_path
+    file_api_env_path = stake_checker.env_api_file_path
+    # Create test api env file
+    create_dummy_env_api_file(file_path=file_api_env_path)
+    # mocker.patch('requests.post', autospec=True)
     yield stake_checker
-    # Remove filename after test completion
-    os.remove(filename_path)
+    # Remove files after test completion
+    os.remove(file_tx_hist_path)
+    os.remove(file_api_env_path)
     # Teardown dummy process
     process_dummy.terminate()
 
@@ -233,7 +263,7 @@ def aws_dummy_dynamodb_both_tables(dynamodb):
 
 
 @fixture
-def dummy_stake_data():
+def dummy_stake_data() -> dict:
     """
     Return dummy Verus stake data.
     """
@@ -246,7 +276,7 @@ def dummy_stake_data():
 
 
 @fixture
-def dummy_lambda_event_get():
+def dummy_lambda_event_get() -> dict:
     """
     Return dummy GET request data.
     """
@@ -259,7 +289,7 @@ def dummy_lambda_event_get():
 
 
 @fixture
-def dummy_lambda_event_post():
+def dummy_lambda_event_post() -> dict:
     """
     Return dummy POST request data.
     """
@@ -274,7 +304,7 @@ def dummy_lambda_event_post():
 
 
 @fixture
-def dummy_stake_txs():
+def dummy_stake_txs() -> tuple:
     """
     Return a tuple of unordered and ordered dummy stake transactions (txs).
     """
@@ -286,7 +316,7 @@ def dummy_stake_txs():
 
 
 @fixture
-def dummy_stake_txs_collection(dummy_stake_txs):
+def dummy_stake_txs_collection(dummy_stake_txs) -> StakeTransactions:
     """
     Return a StakeTransactions object with collection of dummy stake txs.
     """
@@ -298,7 +328,7 @@ def dummy_stake_txs_collection(dummy_stake_txs):
 
 
 @fixture
-def dummy_list_txs():
+def dummy_list_txs() -> list:
     """
     Transactions returned by VerusStakeChecker's _process_call() method.
     """
@@ -329,15 +359,9 @@ def dummy_list_txs():
 
 
 @fixture
-def dummy_api_env_data():
+def dummy_api_env_data() -> dict:
     """
     Return dummy env_data for ApiGatewayCognito class.
     """
-    dummy_env_data = {
-        'COGNITO_TOKEN_URL': 'https://test-token.url',
-        'COGNITO_CLIENT_ID': '12345',
-        'COGNITO_CLIENT_SECRET': 'my-secret',
-        'COGNITO_CUSTOM_SCOPES': 'verus-api/api-test',
-        'NOTIFICATION_API_URL': 'https://test-notification.url'
-    }
+    dummy_env_data = dummy_env_api_file_content()
     return dummy_env_data
