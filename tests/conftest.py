@@ -6,7 +6,7 @@ import boto3
 from moto import mock_dynamodb2
 
 from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker, \
-    StakeTransaction, StakeTransactions
+    StakeTransaction, StakeTransactions, ApiGatewayCognito
 from resources.aws_policy_document import PolicyStatement
 
 
@@ -17,29 +17,6 @@ def create_dummy_processes() -> tuple:
     process_dummy = Popen(['sleep', '10'])
     process_dummy_name = Process(process_dummy.pid).name()
     return process_dummy, VerusProcess(name=process_dummy_name)
-
-
-def dummy_env_api_file_content() -> dict:
-    """
-    Return dummy env api file content.
-    """
-    dummy_env_data = {
-        'COGNITO_TOKEN_URL': 'https://test-token.url',
-        'COGNITO_CLIENT_ID': '12345',
-        'COGNITO_CLIENT_SECRET': 'my-secret',
-        'COGNITO_CUSTOM_SCOPES': 'verus-api/api-test',
-        'NOTIFICATION_API_URL': 'https://test-notification.url'
-    }
-    return dummy_env_data
-
-
-def create_dummy_env_api_file(file_path: str) -> None:
-    """
-    Create dummy env api file.
-    """
-    file_content = [f'{key}={value}\n' for key, value in dummy_env_api_file_content().items()]
-    with open(file_path, 'w') as file:
-        file.writelines(file_content)
 
 
 @fixture
@@ -65,27 +42,61 @@ def nonexistent_process():
 
 
 @fixture
-def verus_stake_checker():
+def dummy_api_env_file_content() -> dict:
     """
-    Create VerusStakeChecker() object with custom transactions (txs) history file.
+    Return dummy env_data for ApiGatewayCognito class.
+    """
+    dummy_env_data = {
+        'COGNITO_TOKEN_URL': 'https://test-token.url',
+        'COGNITO_CLIENT_ID': '12345',
+        'COGNITO_CLIENT_SECRET': 'my-secret',
+        'COGNITO_CUSTOM_SCOPES': 'verus-api/api-test',
+        'NOTIFICATION_API_URL': 'https://test-notification.url'
+    }
+    return dummy_env_data
+
+
+@fixture
+def api_cognito(mocker, dummy_api_env_file_content) -> dict:
+    """
+    Create ApiGatewayCognito object with mocked API env data.
+    """
+    # Mock _load_env_data() method
+    mocker.patch.object(ApiGatewayCognito, '_load_env_data', return_value=dummy_api_env_file_content)
+    api = ApiGatewayCognito()
+    yield api
+
+
+@fixture
+def dummy_tx_hist_file_content() -> dict:
+    """
+    Return initial tx file content.
+    """
+    content = {
+        'txid_stake_previous': '',
+        'txcount_previous': '0'
+    }
+    return content
+
+
+@fixture
+def verus_stake_checker(mocker, dummy_api_env_file_content, dummy_tx_hist_file_content):
+    """
+    Create VerusStakeChecker object with custom transactions (txs) history file.
     """
     file_tx_hist = 'tx_history_test.json'
     file_api_env = '.api-env-test'
-    stake_checker = VerusStakeChecker(txcount_history_filename=file_tx_hist, env_api_filename=file_api_env)
+    # Mock API env file content
+    mocker.patch.object(ApiGatewayCognito, '_get_env_data', return_value=dummy_api_env_file_content)
+    # Mock tx history file creation
+    mocker.patch.object(VerusStakeChecker, '_create_tx_hist_file')
+    # Mock tx history file content
+    mocker.patch.object(VerusStakeChecker, '_read_tx_hist_file', return_value=dummy_tx_hist_file_content)
+    stake_checker = VerusStakeChecker(tx_hist_filename=file_tx_hist, env_api_filename=file_api_env)
     # Setup dummy processes
     process_dummy, process_to_test = create_dummy_processes()
     stake_checker.verus_process = process_to_test
-    # Get dummy test files absolute path
-    file_tx_hist_path = stake_checker.txcount_history_file_path
-    file_api_env_path = stake_checker.env_api_file_path
-    # Create test api env file
-    create_dummy_env_api_file(file_path=file_api_env_path)
-    # mocker.patch('requests.post', autospec=True)
     yield stake_checker
-    # Remove files after test completion
-    os.remove(file_tx_hist_path)
-    os.remove(file_api_env_path)
-    # Teardown dummy process
     process_dummy.terminate()
 
 
@@ -357,11 +368,3 @@ def dummy_list_txs() -> list:
     ]
     return txs
 
-
-@fixture
-def dummy_api_env_data() -> dict:
-    """
-    Return dummy env_data for ApiGatewayCognito class.
-    """
-    dummy_env_data = dummy_env_api_file_content()
-    return dummy_env_data
