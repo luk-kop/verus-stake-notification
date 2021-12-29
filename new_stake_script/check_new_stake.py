@@ -3,7 +3,7 @@ import subprocess
 import json
 from typing import Union
 import sys
-from pathlib import Path
+from pathlib import Path, PosixPath
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,14 +11,21 @@ from datetime import datetime
 from dotenv import dotenv_values
 import requests
 
-# Custom logger
-logger = logging.getLogger(__name__)
+# Custom loggers
+log_format = logging.Formatter('%(asctime)s - %(message)s')
+# Logging only to file
+logger_file = logging.getLogger('file_logger')
 log_path = Path(__file__).resolve().parent.joinpath('stake.log')
 file_handler = logging.FileHandler(log_path)
-log_format = logging.Formatter('%(asctime)s - %(message)s')
 file_handler.setFormatter(log_format)
 file_handler.setLevel(logging.INFO)
-logger.addHandler(file_handler)
+logger_file.addHandler(file_handler)
+# Logging only to CLI
+logger_cli = logging.getLogger('cli_logger')
+cli_handler = logging.StreamHandler()
+cli_handler.setFormatter(log_format)
+cli_handler.setLevel(logging.INFO)
+logger_cli.addHandler(cli_handler)
 
 
 class VerusProcess:
@@ -63,14 +70,20 @@ class VerusStakeChecker:
     """
     The class responsible for checking to confirm that a new stake has appeared in Verus wallet.
     """
-    def __init__(self, txcount_history_filename: str = 'tx_history.json', env_api_filename: str = '.env-api') -> None:
+    def __init__(self, tx_hist_filename: str, env_api_filename: str = '.env-api', cli_logging: bool = False) -> None:
         self.verus_process = VerusProcess()
         self.verus_script_name = 'verus'
-        self.txcount_history_filename = txcount_history_filename
+        # tx data history filename (JSON)
+        self.tx_hist_filename = tx_hist_filename
         self.env_api_filename = env_api_filename
         self.wallet_info = self._get_wallet_info()
         self.tx_hist_data = self._read_tx_hist_file()
         self.stake_txs = StakeTransactions()
+        # Set logger: True - log output to CLI, False - log output to log file
+        if cli_logging:
+            self.logger = logging.getLogger('cli_logger')
+        else:
+            self.logger = logging.getLogger('file_logger')
 
     def run(self) -> None:
         """
@@ -80,10 +93,8 @@ class VerusStakeChecker:
             if not self._check_txcount_changed():
                 return
             self._update_txcount()
-            # Load API related env vars from .env-api file.
-            env_data = self._load_env_data()
             # Trigger external API
-            api = ApiGatewayCognito(env_data=env_data)
+            api = ApiGatewayCognito(env_api_filename=self.env_api_filename)
             new_stake_txs = self._get_wallet_new_stake_txs()
             for tx in new_stake_txs:
                 data_to_post = {
@@ -93,33 +104,11 @@ class VerusStakeChecker:
                 }
                 api.call(method='post', data=data_to_post)
                 tx_timestamp_format = datetime.fromtimestamp(data_to_post['time']).strftime('%Y-%m-%d %H:%M:%SLT')
-                logger.info(f'New stake in wallet at {tx_timestamp_format}')
+                self.logger.info(f'New stake in wallet at {tx_timestamp_format}')
             self._update_stake_txid()
             self._store_new_tx_data()
             return
-        logger.error('verusd process is not running')
-
-    def _load_env_data(self) -> Union[None, dict]:
-        """
-        Load API environment variables from .env-api.
-        """
-        env_path = self.env_api_file_path
-        if not env_path.exists() or not env_path.is_file():
-            logger.error(f'File {env_path} not exists!')
-            sys.exit()
-        env_data = dotenv_values(env_path)
-        env_required = [
-            'NOTIFICATION_API_URL',
-            'COGNITO_CLIENT_ID',
-            'COGNITO_CLIENT_SECRET',
-            'COGNITO_CUSTOM_SCOPES',
-            'COGNITO_TOKEN_URL'
-        ]
-        for env in env_required:
-            if env not in env_data.keys():
-                logger.error(f'The {env} in .env-api is missing.')
-                sys.exit()
-        return env_data
+        self.logger.error('verusd process is not running')
 
     @property
     def verus_script_path(self) -> str:
@@ -129,23 +118,15 @@ class VerusStakeChecker:
         return Path(self.verus_process.directory).joinpath(self.verus_script_name)
 
     @property
-    def txcount_history_file_path(self):
+    def tx_hist_file_path(self):
         """
         Return transactions (txs) history file absolute path.
         Transactions (txs) history file is stored in the same dir as this script.
         """
-        return Path(__file__).resolve().parent.joinpath(self.txcount_history_filename)
+        return Path(__file__).resolve().parent.joinpath(self.tx_hist_filename)
 
     @property
-    def env_api_file_path(self):
-        """
-        Return API env vars file absolute path.
-        File with API env vars is stored in the same dir as this script.
-        """
-        return Path(__file__).resolve().parent.joinpath(self.env_api_filename)
-
-    @property
-    def _initial_tx_history_file_content(self) -> dict:
+    def _initial_tx_hist_file_content(self) -> dict:
         """
         Initial content for tx history file.
         """
@@ -192,13 +173,13 @@ class VerusStakeChecker:
         """
         return self.tx_hist_data.get('txid_stake_previous', '')
 
-    def _create_tx_history_file(self, content: dict = None) -> None:
+    def _create_tx_hist_file(self, content: dict = None) -> None:
         """
         Create tx history file if not exist
         """
         if not content:
-            content = self._initial_tx_history_file_content
-        with open(self.txcount_history_file_path, 'w') as outfile:
+            content = self._initial_tx_hist_file_content
+        with open(self.tx_hist_file_path, 'w') as outfile:
             json.dump(content, outfile)
 
     def _read_tx_hist_file(self) -> dict:
@@ -206,15 +187,16 @@ class VerusStakeChecker:
         Return content of hist file.
         Create new hist file if not exist or file content is invalid.
         """
-        initial_content = self._initial_tx_history_file_content
+        initial_content = self._initial_tx_hist_file_content
         try:
-            with open(self.txcount_history_file_path) as file:
+            with open(self.tx_hist_file_path) as file:
                 content = json.load(file)
+                # Check that the necessary keys are in the file content.
                 if initial_content.keys() == content.keys():
                     return content
         except (FileNotFoundError, json.decoder.JSONDecodeError):
             pass
-        self._create_tx_history_file()
+        self._create_tx_hist_file()
         return initial_content
 
     def _get_wallet_info(self) -> dict:
@@ -269,7 +251,7 @@ class VerusStakeChecker:
         """
         Store new/updated tx data in tx history file.
         """
-        self._create_tx_history_file(content=self.tx_hist_data)
+        self._create_tx_hist_file(content=self.tx_hist_data)
 
     def _check_txcount_changed(self) -> bool:
         """
@@ -351,18 +333,65 @@ class ApiGatewayCognito:
     """
     Class responsible for calling external API using the access token fetched from Cognito service.
     """
-    def __init__(self, env_data: dict) -> None:
+    def __init__(self, env_api_filename: str = '.env-api', cli_logging: bool = False) -> None:
+        self.env_api_filename = env_api_filename
+        # Set logger: True - log output to CLI, False - log output to log file
+        if cli_logging:
+            self.logger = logging.getLogger('cli_logger')
+        else:
+            self.logger = logging.getLogger('file_logger')
+        # Load API related env vars from API env file (env_api_filename).
+        env_data = self._get_env_data()
         self.cognito_token_url = env_data['COGNITO_TOKEN_URL']
         self.cognito_client_id = env_data['COGNITO_CLIENT_ID']
         self.cognito_client_secret = env_data['COGNITO_CLIENT_SECRET']
         self.scopes = env_data['COGNITO_CUSTOM_SCOPES']
         self.api_gateway_url = env_data['NOTIFICATION_API_URL']
 
+    def _get_env_data(self) -> dict:
+        """
+        Return API environment variables from API env file.
+        """
+        env_data = self._load_env_data()
+        self._verify_env_data(env_data=env_data)
+        return env_data
+
+    def _verify_env_data(self, env_data: dict) -> None:
+        """
+        Verify that the API env data is present and has the assigned values.
+        If not the script is terminated and relevant error is logged.
+        """
+        env_required = [
+            'NOTIFICATION_API_URL',
+            'COGNITO_CLIENT_ID',
+            'COGNITO_CLIENT_SECRET',
+            'COGNITO_CUSTOM_SCOPES',
+            'COGNITO_TOKEN_URL'
+        ]
+        for env in env_required:
+            if env not in env_data.keys():
+                self.logger.error(f'The {env} in {self.env_api_filename} is missing.')
+                sys.exit()
+            elif env_data.get(env) == '':
+                self.logger.error(f'The {env} value in {self.env_api_filename} is not specified.')
+                sys.exit()
+
+    def _load_env_data(self) -> dict:
+        """
+        Load API environment variables from API env file.
+        If API env file doesn't exist the script is terminated and relevant error is logged.
+        """
+        env_path = self.env_api_file_path
+        if not env_path.exists() or not env_path.is_file():
+            self.logger.error(f'File {env_path} not exists!')
+            sys.exit()
+        return dotenv_values(env_path)
+
     def call(self, method: str, data: dict) -> None:
         """
         Method triggers the API Gateway endpoint with access token as the value of the Authorization header.
         """
-        self._check_http_method(method=method)
+        self.check_http_method(method=method)
         access_token = self._get_access_token()
         headers = {
             'Authorization': access_token
@@ -375,16 +404,24 @@ class ApiGatewayCognito:
             else:
                 response = requests.post(self.api_gateway_url, headers=headers, json=data)
         except requests.exceptions.RequestException:
-            logger.error(f'API call: failed to establish a new connection')
+            self.logger.error(f'API call: failed to establish a new connection')
             sys.exit()
         self._check_response_status(response)
 
-    def _check_http_method(self, method: str) -> None:
+    @property
+    def env_api_file_path(self):
+        """
+        Return API env vars file absolute path.
+        File with API env vars is stored in the same dir as this script.
+        """
+        return Path(__file__).resolve().parent.joinpath(self.env_api_filename)
+
+    def check_http_method(self, method: str) -> None:
         """
         Check whether the HTTP method is allowed for API call.
         """
         if method.lower() not in ['post', 'get']:
-            logger.error(f'API method: {method} is not allowed HTTP method')
+            self.logger.error(f'API method: {method} is not allowed HTTP method')
             sys.exit()
 
     def _get_access_token(self) -> str:
@@ -406,7 +443,7 @@ class ApiGatewayCognito:
                 headers=headers
             )
         except requests.exceptions.RequestException:
-            logger.error(f'API access token: failed to establish a new connection')
+            self.logger.error(f'API access token: failed to establish a new connection')
             sys.exit()
         self._check_response_status(response)
         return response.json()['access_token']
@@ -417,11 +454,11 @@ class ApiGatewayCognito:
         """
         if response.status_code != 200:
             response_text = (response.text[:87] + '...') if len(response.text) > 90 else response.text
-            logger.error(f'API response: {response.status_code} {response_text}')
+            self.logger.error(f'API response: {response.status_code} {response_text}')
             sys.exit()
 
 
 if __name__ == '__main__':
-    verus_check = VerusStakeChecker()
+    verus_check = VerusStakeChecker(tx_hist_filename='tx_history.json')
     # Run Verus check
     verus_check.run()
