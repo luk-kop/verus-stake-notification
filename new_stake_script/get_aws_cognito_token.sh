@@ -2,8 +2,7 @@
 
 # Script can be used to fetch Cognito Access Token or to call API Gateway (with Access Token onboard)
 # Get absolute paths
-SCRIPT_DIR="$(dirname "$(readlink -fm "$0")")"
-ENV_DIR=$(dirname "$SCRIPT_DIR")
+ENV_DIR="$(dirname "$(readlink -fm "$0")")"
 ENV_FILE_PATH=${ENV_DIR}/.env-api
 
 # Check whether $ENV_FILE_PATH exists
