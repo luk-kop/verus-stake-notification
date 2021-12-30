@@ -3,29 +3,19 @@ import subprocess
 import json
 from typing import Union
 import sys
-from pathlib import Path, PosixPath
+from pathlib import Path
 import logging
+from logging import config
 from dataclasses import dataclass
 from datetime import datetime
 
 from dotenv import dotenv_values
 import requests
 
-# Custom loggers
-log_format = logging.Formatter('%(asctime)s - %(message)s')
-# Logging only to file
-logger_file = logging.getLogger('file_logger')
-log_path = Path(__file__).resolve().parent.joinpath('stake.log')
-file_handler = logging.FileHandler(log_path)
-file_handler.setFormatter(log_format)
-file_handler.setLevel(logging.INFO)
-logger_file.addHandler(file_handler)
-# Logging only to CLI
-logger_cli = logging.getLogger('cli_logger')
-cli_handler = logging.StreamHandler()
-cli_handler.setFormatter(log_format)
-cli_handler.setLevel(logging.INFO)
-logger_cli.addHandler(cli_handler)
+
+# Load custom loggers config - Logging only to file or only to CLI
+logging_conf_path = Path(__file__).resolve().parent.joinpath('logging.conf')
+config.fileConfig(logging_conf_path)
 
 
 class VerusProcess:
@@ -81,9 +71,9 @@ class VerusStakeChecker:
         self.stake_txs = StakeTransactions()
         # Set logger: True - log output to CLI, False - log output to log file
         if cli_logging:
-            self.logger = logging.getLogger('cli_logger')
+            self.logger = logging.getLogger('cli_log')
         else:
-            self.logger = logging.getLogger('file_logger')
+            self.logger = logging.getLogger('file_log')
 
     def run(self) -> None:
         """
@@ -337,9 +327,9 @@ class ApiGatewayCognito:
         self.env_api_filename = env_api_filename
         # Set logger: True - log output to CLI, False - log output to log file
         if cli_logging:
-            self.logger = logging.getLogger('cli_logger')
+            self.logger = logging.getLogger('cli_log')
         else:
-            self.logger = logging.getLogger('file_logger')
+            self.logger = logging.getLogger('file_log')
         # Load API related env vars from API env file (env_api_filename).
         env_data = self._get_env_data()
         self.cognito_token_url = env_data['COGNITO_TOKEN_URL']
