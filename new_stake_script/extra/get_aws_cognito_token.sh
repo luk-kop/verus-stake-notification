@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 
 # Script can be used to fetch Cognito Access Token or to call API Gateway (with Access Token onboard)
-env_dir="$(dirname "$(readlink -fm "$0")")"
-env_file_path=$env_dir/.env-api
-#env_file_path=".env-api"
+# Get absolute paths
+SCRIPT_DIR="$(dirname "$(readlink -fm "$0")")"
+ENV_DIR=$(dirname "$SCRIPT_DIR")
+ENV_FILE_PATH=${ENV_DIR}/.env-api
 
-# Check whether $env_file_path exists
-if [ ! -f "$env_file_path" ]; then
+# Check whether $ENV_FILE_PATH exists
+if [ ! -f "$ENV_FILE_PATH" ]; then
   echo
-  echo "File $env_file_path not found!"
+  echo "File ${ENV_FILE_PATH} not found!"
   echo
   exit 1
 fi
 
 # Load data from .env-api
-source $env_file_path
+# shellcheck disable=SC1090
+source "$ENV_FILE_PATH"
 
-# Declare dict for env variables from $env_file_path
+# Declare dict for env variables from $ENV_FILE_PATH
 declare -A env_var_dict
 env_var_dict["NOTIFICATION_API_URL"]="$NOTIFICATION_API_URL"
 env_var_dict["COGNITO_CLIENT_ID"]="$COGNITO_CLIENT_ID"
@@ -24,11 +26,11 @@ env_var_dict["COGNITO_CLIENT_SECRET"]="$COGNITO_CLIENT_SECRET"
 env_var_dict["COGNITO_TOKEN_URL"]="$COGNITO_TOKEN_URL"
 env_var_dict["COGNITO_CUSTOM_SCOPES"]="$COGNITO_CUSTOM_SCOPES"
 
-# Check whether all necessary env variables are specified in $env_file_path file
+# Check whether all necessary env variables are specified in $ENV_FILE_PATH file
 for env_var in "${!env_var_dict[@]}"; do
-  if [ -z ${env_var_dict[$env_var]} ]; then
+  if [ -z "${env_var_dict[$env_var]}" ]; then
     echo
-    echo "\"${env_var}\" variable is not specified in $env_file_path file!"
+    echo "\"${env_var}\" variable is not specified in ${ENV_FILE_PATH} file!"
     echo
     exit 1
   fi
