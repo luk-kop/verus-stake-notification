@@ -377,7 +377,7 @@ class ApiGatewayCognito:
             sys.exit()
         return dotenv_values(env_path)
 
-    def call(self, method: str, data: dict) -> None:
+    def call(self, method: str, data: dict) -> dict:
         """
         Method triggers the API Gateway endpoint with access token as the value of the Authorization header.
         """
@@ -390,13 +390,15 @@ class ApiGatewayCognito:
             if method.lower() == 'get':
                 # data = {'year': '2021', 'month': '11'}
                 response = requests.get(self.api_gateway_url, headers=headers, params=data)
-                return response.json()['body']
+                self._check_response_status(response)
+                return response.json()
             else:
                 response = requests.post(self.api_gateway_url, headers=headers, json=data)
+                self._check_response_status(response)
+                return response.json()
         except requests.exceptions.RequestException:
             self.logger.error(f'API call: failed to establish a new connection')
             sys.exit()
-        self._check_response_status(response)
 
     @property
     def env_api_file_path(self):

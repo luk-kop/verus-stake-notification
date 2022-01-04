@@ -12,10 +12,10 @@ class ApiCall:
     The class representing call to AWS API Gateway dedicated to the verus-notification project.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.api = ApiGatewayCognito(cli_logging=True)
 
-    def post_data(self, vrsc_amount: float):
+    def post_data(self, vrsc_amount: float) -> dict:
         """
         POST data to AWS resources.
         """
@@ -27,16 +27,18 @@ class ApiCall:
             'amount': vrsc_amount
         }
         # API POST call
-        self.api.call(method='post', data=data)
+        response = self.api.call(method='post', data=data)
         # Add fake 1 sec time delay
-        time.sleep(1)
+        time.sleep(0.5)
+        return response
 
-    def get_data(self, date: dict):
+    def get_data(self, date: dict) -> dict:
         """
         Get data for a selected time period from AWS resources.
         """
         # For current year & month use 'data = {}'
-        self.api.call(method='get', data=date)
+        response = self.api.call(method='get', data=date)
+        return response
 
 
 def validate_date(date: str) -> dict:
@@ -91,12 +93,14 @@ if __name__ == '__main__':
         date_argument = args.date
         post_validation_date = validate_date(date=date_argument)
         if post_validation_date:
-            ApiCall().get_data(date=post_validation_date)
+            api_response = ApiCall().get_data(date=post_validation_date)
+            print(api_response)
         else:
             parser_get.error('argument -d/--date: wrong format - use: YYYY or YYYY-MM')
     elif args.method == 'post':
         value_argument = args.value
-        ApiCall().post_data(vrsc_amount=value_argument)
+        api_response = ApiCall().post_data(vrsc_amount=value_argument)
+        print(api_response)
     else:
         # if no method is given, print help
         parser_parent.print_help()
