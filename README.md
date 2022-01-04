@@ -11,11 +11,15 @@
 ## Features
 * The project uses Python script and AWS services to notify the user about the new staking reward (stake) in the VRSC wallet.
 * The `Terraform` tool or `boto3` AWS SDK for Python are used to build and destroy dedicated environment in the AWS Cloud.
-* The `check_new_stake.py` script can be run at regular intervals on the machine running the VRSC wallet (with cronjob or systemd timer). If a new stake arrives, the script calls the **API Gateway** in AWS Cloud.
-* When the **API Gateway** URL is invoked, the created AWS resources will send email notification to a selected address.
+* The `check_new_stake.py` script can be run at regular intervals on the host running the VRSC wallet (with cronjob or systemd timer). If a new stake arrives, the script calls the **API Gateway** in AWS Cloud (with POST method).
+* When the **API Gateway** URL is invoked:
+  - the AWS resources will send email notification to a selected address;
+  - information about new stake are added to the **Amazon DynamoDB** tables.
 * Orphan stakes and new transactions (transferring cryptocurrency from/to wallet) are not counted.
 * The email address that will be notified about new stake is stored in `.env` file (`EMAIL_TO_NOTIFY`).
-* The new stake is also added to the **Amazon DynamoDB** table (with timestamp and stake value).
+* In **Amazon DynamoDB** stakes data is stored in two tables:
+  - `verus_stakes_txids_table` - information about each stake (stake transaction id, stake value, stake timestamp);
+  - `verus_stakes_values_table` - information about the value and number of stakes for a given period of time (year and month).
 * Access to **API Gateway** is authorized with **Amazon Cognito**.
 * Additionally, access to the **API Gateway** can also be limited to a selected ip address (VRSC wallet public ip address):
   - To limit access to specific public ip address - set `WALLET_PUBLIC_IP='your-public-ip-address'` in `.env` file;
@@ -23,13 +27,16 @@
 * The **API Gateway** URL and **Amazon Cognito** data are added to `new_stake_script/.env-api` file during AWS environment build.
 * Data stored in `new_stake_script/.env-api` file are used by the `check_new_stake.py` script when it detects a new stake.
 * The script `check_new_stake.py` saves its logs in a `new_stake_script/stake.log` file.
+* Two additional scripts are included in the `new_stake_script` folder:
+  - Python script `call_aws_api.py` - call API Gateway with GET and POST methods;
+  - Bash script `call_aws_cognito_api.sh` - get Amazon Cognito token and call API Gateway with GET method.
 
 ## Project architecture
 ![Project architecture](./images/project_architecture.jpg)
 
 ## Getting Started
 
-Below instructions will get you a copy of the project running on your local machine.
+Below instructions will get you a copy of the project running on your local host.
 
 ### Requirements
 Python third party packages:
@@ -95,7 +102,7 @@ In both phases we will use the `virtualenv` tool to build the application.
       (venv) $ deactivate
       ```
 
-5. Once the AWS resources are properly deployed, you should copy `new_stake_script` directory to the host where VRSC wallet is running.
+5. Once the AWS resources are properly deployed, you should copy `new_stake_script` directory to the host where the VRSC wallet is running.
     ```bash
     # example of a copying a dictionary to remote host using the rsync tool 
     $ rsync -avzP new_stake_script/ user@your-vrsc-wallet-host:~/new_stake_script/
@@ -129,3 +136,83 @@ In both phases we will use the `virtualenv` tool to build the application.
       ```bash
       (venv) $ python terraform_resources.py destroy
       ```
+     
+## Run additional scripts
+
+- Extra scripts should be run on the host where the VRSC wallet is running and after the AWS resources deployment.
+- Scripts should be run from `new_stake_script` directory.
+
+#### Script `call_aws_api.py` usage:
+```bash
+(venv) $ cd new_stake_script/
+(venv) $ python call_aws_api.py
+usage: call_aws_api.py [-h] {get,post} ...
+
+The verus-notification API Gateway calling script
+
+optional arguments:
+  -h, --help  show this help message and exit
+
+Valid HTTP methods:
+  {get,post}
+    get       get value of VRSC stakes in selected time period
+    post      post new VRSC stake with specified value
+
+"post" method usage: call_aws_api.py get [-h] [-d DATE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DATE, --date DATE  year or month of year (default: 2022-01)
+
+"get" method usage: call_aws_api.py post [-h] [-v VALUE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v VALUE, --value VALUE
+                        stake value (default: 12.0)
+```
+You can use the `call_aws_api.py` script using one of the following commands:
+```bash
+# Run script with 'get' and default option (current month).
+python call_aws_api.py get
+# You should get the similar output:
+{'statusCode': 200, 'body': '{"timeframe": "2022-01", "stakes_count": 0, "stakes_amount": 0}'}
+# or
+{'statusCode': 200, 'body': '{"timeframe": "2022-01", "stakes_count": 3.0, "stakes_amount": 124.0}'}
+
+# Run script with 'get' and the specified date (year 2022).
+python call_aws_api.py get --date 2022
+# You should get the similar output:
+{'statusCode': 200, 'body': '{"timeframe": "2022", "stakes_count": 4.0, "stakes_amount": 136.0}'}
+
+# Run script with 'get' and the specified date (December 2021).
+python call_aws_api.py get --date 2021-12
+# You should get the similar output:
+{'statusCode': 200, 'body': '{"timeframe": "2021-12", "stakes_count": 0, "stakes_amount": 0}'}
+
+# Run script with 'post' and default option (stake value = 12 VRSC).
+python call_aws_api.py post
+# You should get the similar output:
+{'statusCode': 200, 'body': '"Tables updated and notification sent!"'}
+
+# Run script with 'post' and stake value = 100 VRSC.
+python call_aws_api.py post --value 100
+# You should get the similar output:
+{'statusCode': 200, 'body': '"Tables updated and notification sent!"'}
+```
+
+#### Script `call_aws_cognito_api.sh` usage:
+```bash
+(venv) $ cd new_stake_script/
+(venv) $ ./call_aws_cognito_api.sh
+   ________                                         __  _
+  / ____/ /_  ____  ____  ________     ____  ____  / /_(_)___  ____
+ / /   / __ \/ __ \/ __ \/ ___/ _ \   / __ \/ __ \/ __/ / __ \/ __ \
+/ /___/ / / / /_/ / /_/ (__  )  __/  / /_/ / /_/ / /_/ / /_/ / / / /
+\____/_/ /_/\____/\____/____/\___/   \____/ .___/\__/_/\____/_/ /_/
+                                         /_/
+
+1. Get Cognito Access Token
+2. Get Cognito Access Token and call API Gateway with GET method
+>>>
+```
