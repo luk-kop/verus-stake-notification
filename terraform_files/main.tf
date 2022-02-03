@@ -42,14 +42,14 @@ resource "random_pet" "name" {
 # Data config
 data "archive_file" "lambda_get_zip" {
   type             = "zip"
-  source_file      = "${path.module}/../lambda_function_get.py"
+  source_file      = "${path.module}/../lambda_functions/lambda_function_get.py"
   output_file_mode = "0666"
   output_path      = "${path.module}/files/lambda_function_get_payload.zip"
 }
 
 data "archive_file" "lambda_post_zip" {
   type             = "zip"
-  source_file      = "${path.module}/../lambda_function_post.py"
+  source_file      = "${path.module}/../lambda_functions/lambda_function_post.py"
   output_file_mode = "0666"
   output_path      = "${path.module}/files/lambda_function_post_payload.zip"
 }

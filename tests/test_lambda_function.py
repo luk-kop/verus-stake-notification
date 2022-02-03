@@ -1,9 +1,9 @@
 from datetime import date
 import json
 
-from lambda_function_post import get_timestamp_id, put_stake_txids_db, put_stake_values_db, get_db_item, \
+from lambda_functions.lambda_function_post import get_timestamp_id, put_stake_txids_db, put_stake_values_db, get_db_item, \
     update_db_item, lambda_handler_post
-from lambda_function_get import check_str_is_number, sanitize_query_params, lambda_handler_get
+from lambda_functions.lambda_function_get import check_str_is_number, sanitize_query_params, lambda_handler_get
 
 
 def test_item_not_exist_in_stake_txids_db(aws_dummy_stake_txids_table):
