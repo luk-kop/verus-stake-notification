@@ -2,8 +2,7 @@ import os
 from pathlib import Path
 from unittest import mock
 
-from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions, VerusStakeChecker, \
-    ApiGatewayCognito
+from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions, VerusStakeChecker
 
 
 def test_process_exist(dummy_process):

@@ -7,7 +7,6 @@ from moto import mock_dynamodb2
 
 from new_stake_script.check_new_stake import VerusProcess, VerusStakeChecker, \
     StakeTransaction, StakeTransactions, ApiGatewayCognito
-from resources.aws_policy_document import PolicyStatement
 
 
 def create_dummy_processes() -> tuple:
@@ -122,17 +121,6 @@ def dummy_wallet_new_stake():
         'txcount': 11
     }
     return wallet_info
-
-
-@fixture
-def dummy_policy_statement():
-    """
-    Return dummy policy statement.
-    """
-    policy_statement = PolicyStatement(effect='Allow',
-                                       actions=['execute-api:Invoke'],
-                                       resources=['execute-api:/*'])
-    return policy_statement
 
 
 @fixture
