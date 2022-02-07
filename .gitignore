@@ -7,13 +7,17 @@ new_stake_script/.env-api
 .idea/
 venv/
 # Exclude some terraform data
-terraform_files/terraform.tfstate*
-terraform_files/.terraform*
+.terraform*
+*.tfstate
+*.tfstate.*
+**/.terraform/*
+*.tfvars
+crash.log
+crash.*.log
 *.zip
+backend.hcl
 
 notes*
 txcount*
 tx_hist*
 *.xml
-
-
