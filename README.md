@@ -2,7 +2,7 @@
 
 [![Python 3.8.5](https://img.shields.io/badge/python-3.8.5-blue.svg)](https://www.python.org/downloads/release/python-377/)
 [![Boto3](https://img.shields.io/badge/Boto3-1.17.78-blue.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-[![Terraform](https://img.shields.io/badge/Terraform-0.14.9-blueviolet.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+[![Terraform](https://img.shields.io/badge/Terraform-0.14.9-blueviolet.svg)](https://www.terraform.io/)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
 > The **Verus stake notification** is an application that monitors the state of your **Verus Coin (VRSC)** cryptocurrency wallet.
@@ -10,7 +10,8 @@
 
 ## Features
 * The project uses Python script and AWS services to notify the user about the new staking reward (stake) in the VRSC wallet.
-* The `Terraform` tool or `boto3` AWS SDK for Python are used to build and destroy dedicated environment in the AWS Cloud.
+* The `Terraform` tool is used to build and destroy dedicated environment in the AWS Cloud.
+* The Amazon S3 bucket and DynamoDB table are used as backend for `Terraform` **remote state file**.
 * The `check_new_stake.py` script can be run at regular intervals on the host running the VRSC wallet (with cronjob or systemd timer). If a new stake arrives, the script calls the **API Gateway** in AWS Cloud (with POST method).
 * When the **API Gateway** URL is invoked:
   - the AWS resources will send email notification to a selected address;
@@ -51,15 +52,15 @@ Other prerequisites:
 * The AWS account.  
 * Before using scripts, you need to set up authentication credentials for your AWS account (with programmatic access) using either the IAM Management Console or the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html) tool.
 * The [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) tool must be installed in order to successfully deploy the AWS resources using it.
+* Remote `Terraform` state file backend with Amazon S3 and DynamoDB services. 
 * The `virtualenv` package already installed on the OS level.
 
 ## Build and run the application
 
 The project creation process is divided into two phases:
-> **Note:** Bulding AWS infrastructure with `boto3` package is under development, at this moment it is recommended to use `Terraform` tool.
-1. Deployment of the AWS resources (infrastructure) with `boto3` package or `Terraform` tool.
+1. Deployment of the AWS resources (infrastructure) with `Terraform` tool.
 2. Setup script for monitoring the VRSC wallet.
-> :warning: **Note:** It is recommended to build the AWS infrastructure on a different host (fe. locally) than the one running the VRSC wallet. 
+> :warning: **Note:** It is recommended to build the AWS infrastructure on a different host than the one running the VRSC wallet (fe. your localhost) . 
 
 In both phases we will use the `virtualenv` tool to build the application.
 
@@ -78,29 +79,47 @@ In both phases we will use the `virtualenv` tool to build the application.
     (venv) $ pip install -r requirements.txt
     ```
 
-3. Before running the application you should create `.env` file in the root application directory (`verus-stake-notification`).
-   The best solution is to copy the existing example file `.env-example` and edit the necessary data.
+3. Before running the application you should:
+    - create `.env` file in the root application directory (`verus-stake-notification`). The best solution is to copy the existing example file `.env-example` and edit the necessary data.
     ```bash
     (venv) $ cp .env-example .env
     ```
+    - create `backend.hcl` file (`Terraform` remote state configuration) inside `terraform_files` dir. Copy example file and edit necessary data.
+    ```bash
+    (venv) $ cd terraform_files/
+    (venv) $ cp backend-example.hcl backend.hcl
+   ```    
    
-4. Build the AWS resources. You can choose one of two options:
-   * Deployment with `boto3` package:
-      ```bash
-      (venv) $ python boto3_resources.py build
-      # deactivate virtual environment after infrastructure deployment
-      (venv) $ deactivate
-      ```
-     > **Note:** I realize that using `boto3` to build the AWS infrastructure can be tricky and there are dedicated tools for this, but I did it for self-education purposes.
-   
-   * Deployment with `Terraform` tool:
-      ```bash
-      (venv) $ python terraform_resources.py build
-      # For more options use:
-      (venv) $ python terraform_resources.py -h
-      # deactivate virtual environment after infrastructure deployment
-      (venv) $ deactivate
-      ```
+4. To build the AWS resources with `Terraform` tool use `terraform_resources.py` script.
+    Before running `terraform_resources.py` state remote state file backend configuration.    
+    
+
+    #### Script `terraform_resources.py` usage:   
+    ```bash
+    usage: terraform_resources.py [-h] [--region REGION] [--profile PROFILE] {init,build,destroy} ...
+
+    The script deploys AWS resources with terraform
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --region REGION       AWS region in which resources will be deployed (default: eu-west-1)
+      --profile PROFILE     AWS profile used to deploy resources (default: default)
+    
+    Valid actions:
+      {init,build,destroy}
+        init                Initialize Terraform working directory
+        build               Build AWS environment
+        destroy             Remove already created AWS environment
+    ```
+   Run following commands to build the AWS resources:
+   > :bulb: **Note:** The first time you run the `python terraform_resources.py build` command, the Terraform working directory will be initialized.
+   ```bash
+    (venv) $ python terraform_resources.py build
+    # For more options use:
+    (venv) $ python terraform_resources.py -h
+    # deactivate virtual environment after infrastructure deployment
+    (venv) $ deactivate
+   ```
 
 5. Once the AWS resources are properly deployed, you should copy `new_stake_script` directory to the host where the VRSC wallet is running.
     ```bash
@@ -127,15 +146,10 @@ In both phases we will use the `virtualenv` tool to build the application.
    */20 * * * * /home/user/new_stake_script/venv/bin/python /home/user/new_stake_script/check_new_stake.py
    ```
 
-7. To remove all project's AWS resources use below command. Remember to activate virtual environment before run commands (should be issued on the host from which you built the infrastructure).
-   * Removing AWS resources with `boto3` package:
-      ```bash
-      (venv) $ python aws_environment.py destroy
-      ```
-   * Removing AWS resources with `Terraform` tool:
-      ```bash
-      (venv) $ python terraform_resources.py destroy
-      ```
+7. To remove all project's AWS resources with `Terraform` tool use below command. Remember to activate virtual environment before run commands (should be issued on the host from which you built the infrastructure).
+    ```bash
+    (venv) $ python terraform_resources.py destroy
+    ```
      
 ## Run additional scripts
 
