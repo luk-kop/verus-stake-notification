@@ -6,7 +6,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from utils import EnvApiFile, get_env_path
+from utils import EnvApiFile, TerraformBackendFile, get_env_path
 
 
 def store_terraform_output() -> None:
@@ -65,6 +65,20 @@ def destroy_resources_wrapper() -> None:
     EnvApiFile().store()
 
 
+def init_terraform_wrapper() -> None:
+    """
+    Function run by the parser to initialize Terraform working directory.
+    """
+    tf_backend_filename = 'backend.hcl'
+    tf_backend = TerraformBackendFile(filename=tf_backend_filename)
+    if not tf_backend.validate_file():
+        sys.exit(1)
+    options = ['terraform', 'init', f'-backend-config={tf_backend_filename}']
+    # Run 'terraform init -backend-config=backend.hcl'
+    print('Initializing Terraform working directory...')
+    subprocess.run(args=options)
+
+
 if __name__ == '__main__':
     env_path = get_env_path()
     # Get environment variables from .env file
@@ -78,6 +92,9 @@ if __name__ == '__main__':
                                help='AWS profile used to deploy resources (default: default)')
     # Add subparsers
     subparsers = parser_parent.add_subparsers(title='Valid actions', dest='action')
+    # Create parser for 'init' command
+    parser_build = subparsers.add_parser(name='init', help='Initialize Terraform working directory')
+    parser_build.set_defaults(func=init_terraform_wrapper)
     # Create parser for 'build' command
     parser_build = subparsers.add_parser(name='build', help='Build AWS environment')
     parser_build.set_defaults(func=build_resources_wrapper)
@@ -98,6 +115,9 @@ if __name__ == '__main__':
         # Call selected action
         args.func(func_params)
     elif args.action == 'destroy':
+        # Call selected action
+        args.func()
+    elif args.action == 'init':
         # Call selected action
         args.func()
     else:

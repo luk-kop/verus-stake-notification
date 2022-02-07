@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import Union
-from pathlib import Path
+from pathlib import Path, PosixPath
 import sys
 
 from dotenv import set_key
+import hcl2
+from lark import exceptions as hcl2_exception
 
 
-def get_env_path() -> Union[None, str]:
+def get_env_path() -> Union[None, PosixPath]:
     """
     Return .env file path if exists.
     """
@@ -15,6 +17,71 @@ def get_env_path() -> Union[None, str]:
         print(f'File {path} not exists!')
         sys.exit()
     return path
+
+
+@dataclass
+class TerraformBackendFile:
+    """
+    The class representing backend.hcl file.
+    """
+    filename: str
+
+    @property
+    def _filename_path(self) -> PosixPath:
+        """
+        File absolute path.
+        """
+        return Path(__file__).resolve().parent.joinpath(f'terraform_files/{self.filename}')
+
+    def check_exist(self) -> bool:
+        """
+        Checks whether filename exists.
+        """
+        if not self._filename_path.exists() or not self._filename_path.is_file():
+            return False
+        return True
+
+    def _check_value_syntax(self, content: dict) -> bool:
+        """
+        Verify that value syntax is correct - do not allow value in ${}
+        """
+        for key, value in content.items():
+            if isinstance(value, str) and value.startswith('${'):
+                return False
+        return True
+
+    @property
+    def file_content(self) -> dict:
+        """
+        Return HCL file content as python dict object.
+        """
+        if self.check_exist():
+            try:
+                with open(self.filename, 'r') as file:
+                    hcl_dict = hcl2.load(file)
+            except hcl2_exception.UnexpectedInput:
+                return {'error': True}
+            if not self._check_value_syntax(hcl_dict):
+                return {'error': True}
+            return hcl_dict
+        else:
+            return {}
+
+    def validate_file(self) -> Union[None, dict]:
+        """
+        Validate HCL file existence and content.
+        """
+        if not self.check_exist():
+            print(f'Error: file "{self.filename}" does not exist')
+            return False
+        hcl_file_content = self.file_content
+        if not hcl_file_content:
+            print(f'Error: file "{self.filename}" is empty')
+            return False
+        elif hcl_file_content.get('error'):
+            print(f'Error: not valid data format in "{self.filename}" file')
+            return False
+        return True
 
 
 @dataclass
@@ -30,7 +97,7 @@ class EnvApiFile:
     cognito_custom_scopes: Union[list, str] = ''
 
     @property
-    def _filename_path(self):
+    def _filename_path(self) -> PosixPath:
         """
         File absolute path.
         """
@@ -69,4 +136,4 @@ class EnvApiFile:
         self.cognito_client_id = ''
         self.cognito_client_secret = ''
         self.cognito_token_url = ''
-        self.cognito_custom_of_scopes = ''
+        self.cognito_custom_scopes = ''
