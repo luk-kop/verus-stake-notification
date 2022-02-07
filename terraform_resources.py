@@ -6,7 +6,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from utils import EnvApiFile, TerraformBackendFile, get_env_path
+from utils import EnvApiFile, TerraformBackendFile, get_path
 
 
 def store_terraform_output() -> None:
@@ -38,6 +38,9 @@ def build_resources_wrapper(command_params: dict) -> None:
     """
     Function run by the parser to build AWS resources.
     """
+    # Check whether '.terraform' dir exist - if not initialize Terraform working directory
+    if not get_path(name='terraform_files/.terraform', directory=True):
+        init_terraform_wrapper()
     aws_region = command_params['region']
     aws_profile = command_params['profile']
     # Get SNS Topic subscription email from env var
@@ -80,7 +83,11 @@ def init_terraform_wrapper() -> None:
 
 
 if __name__ == '__main__':
-    env_path = get_env_path()
+    env_file = '.env'
+    env_path = get_path(name=env_file, directory=False)
+    if not env_path:
+        print(f'File {env_file} not exists!')
+        sys.exit(1)
     # Get environment variables from .env file
     load_dotenv(env_path)
     # Create parent parser

@@ -1,22 +1,22 @@
 from dataclasses import dataclass
 from typing import Union
 from pathlib import Path, PosixPath
-import sys
 
 from dotenv import set_key
 import hcl2
 from lark import exceptions as hcl2_exception
 
 
-def get_env_path() -> Union[None, PosixPath]:
+def get_path(name: str, directory: bool = False) -> Union[None, PosixPath]:
     """
-    Return .env file path if exists.
+    Return file/dir path if exists.
     """
-    path = Path(__file__).resolve().parent.joinpath('.env')
-    if not path.exists() or not path.is_file():
-        print(f'File {path} not exists!')
-        sys.exit()
-    return path
+    path = Path(__file__).resolve().parent.joinpath(name)
+    if path.exists():
+        if directory and path.is_dir():
+            return path
+        elif path.is_file():
+            return path
 
 
 @dataclass
