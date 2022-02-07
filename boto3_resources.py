@@ -1,12 +1,26 @@
 import os
 import argparse
+import sys
+from typing import Union
+from pathlib import PosixPath, Path
 
 from dotenv import load_dotenv, set_key
 
 from resources.aws_resources import SnsTopic, IamRoleLambda, LambdaFunction, DynamoDb
 from resources.aws_api_gateway import ApiResources
 from resources.aws_cognito import CognitoResources
-from terraform_resources import get_env_path
+
+
+def get_path(name: str, directory: bool = False) -> Union[None, PosixPath]:
+    """
+    Return file/dir path if exists.
+    """
+    path = Path(__file__).resolve().parent.joinpath(name)
+    if path.exists():
+        if directory and path.is_dir():
+            return path
+        elif path.is_file():
+            return path
 
 
 class VerusStakeNotification:
@@ -99,7 +113,11 @@ def destroy_resources_wrapper() -> None:
 
 
 if __name__ == '__main__':
-    env_path = get_env_path()
+    env_file = '.env'
+    env_path = get_path(name=env_file, directory=False)
+    if not env_path:
+        print(f'File {env_file} not exists!')
+        sys.exit(1)
     # Get environment variables from .env file
     load_dotenv(env_path)
     # Create parser
