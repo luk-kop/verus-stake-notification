@@ -15,6 +15,7 @@ venv/
 crash.log
 crash.*.log
 *.zip
+backend.hcl
 
 notes*
 txcount*

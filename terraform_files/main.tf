@@ -5,8 +5,11 @@ terraform {
       version = "~> 3.50"
     }
   }
-
-  required_version = ">= 0.14.9"
+  backend "s3" {
+    key = "verus-notification/terraform.tfstate"
+  }
+  //  required_version = "~> 1.0.0"
+  required_version = ">= 1.0.0"
 }
 
 provider "aws" {
@@ -19,7 +22,7 @@ provider "aws" {
 
 locals {
   domain_prefix = "${var.cognito_pool_domain}-${random_string.name.id}"
-  name_suffix = "${var.resource_tags["project"]}-${var.resource_tags["environment"]}"
+  name_suffix   = "${var.resource_tags["project"]}-${var.resource_tags["environment"]}"
 }
 
 # Random resources
