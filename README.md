@@ -2,7 +2,7 @@
 
 [![Python 3.8.5](https://img.shields.io/badge/python-3.8.5-blue.svg)](https://www.python.org/downloads/release/python-377/)
 [![Boto3](https://img.shields.io/badge/Boto3-1.17.78-blue.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-[![Terraform](https://img.shields.io/badge/Terraform-0.14.9-blueviolet.svg)](https://www.terraform.io/)
+[![Terraform](https://img.shields.io/badge/Terraform->=1.0.0-blueviolet.svg)](https://www.terraform.io/)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
 > The **Verus stake notification** is an application that monitors the state of your **Verus Coin (VRSC)** cryptocurrency wallet.
