@@ -1,6 +1,6 @@
 # Cognito config
 resource "aws_cognito_user_pool" "verus_cognito_pool" {
-  name = "vrsc-notification-pool-${random_pet.name.id}"
+  name = "${local.name_prefix}-notification-pool-${random_pet.name.id}"
   admin_create_user_config {
     allow_admin_create_user_only = true
   }
@@ -8,7 +8,7 @@ resource "aws_cognito_user_pool" "verus_cognito_pool" {
 
 resource "aws_cognito_resource_server" "verus_cognito_resource_server" {
   identifier = "verus-api"
-  name       = "verus-api-resource-server"
+  name       = "${local.name_prefix}-api-resource-server"
   scope {
     scope_name        = "access"
     scope_description = "Retrieve or update VRSC stakes data"
@@ -22,7 +22,7 @@ resource "aws_cognito_user_pool_domain" "verus_cognito_domain" {
 }
 
 resource "aws_cognito_user_pool_client" "verus_cognito_client" {
-  name                                 = "verus-cli-wallet"
+  name                                 = "${local.name_prefix}-cli-wallet"
   user_pool_id                         = aws_cognito_user_pool.verus_cognito_pool.id
   generate_secret                      = true
   allowed_oauth_flows_user_pool_client = true

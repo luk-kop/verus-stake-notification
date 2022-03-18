@@ -1,6 +1,6 @@
 # API Gateway config
 resource "aws_api_gateway_rest_api" "verus_api" {
-  name        = "verus-api-gateway-${random_id.name.hex}"
+  name        = "${local.name_prefix}-api-${random_id.name.hex}"
   description = "Invoke Lambda function when a new stake appears in your Verus (VRSC) wallet."
 }
 
@@ -171,7 +171,7 @@ resource "aws_api_gateway_deployment" "verus_api" {
 resource "aws_api_gateway_stage" "verus_api" {
   deployment_id = aws_api_gateway_deployment.verus_api.id
   rest_api_id   = aws_api_gateway_rest_api.verus_api.id
-  stage_name    = "vrsc"
+  stage_name    = local.api_stage
 }
 
 resource "aws_api_gateway_rest_api_policy" "verus_api" {

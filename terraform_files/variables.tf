@@ -13,8 +13,9 @@ variable "resource_tags" {
   description = "Tags to set for all resources"
   type        = map(string)
   default = {
-    project     = "verus-notification",
-    environment = "dev"
+    Project     = "vrsc-notification",
+    Environment = "dev",
+    Terraform   = "true"
   }
 }
 

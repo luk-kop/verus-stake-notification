@@ -1,28 +1,9 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 3.50"
-    }
-  }
-  backend "s3" {
-    key = "verus-notification/terraform.tfstate"
-  }
-  //  required_version = "~> 1.0.0"
-  required_version = ">= 1.0.0"
-}
-
-provider "aws" {
-  profile = var.profile
-  region  = var.region
-  default_tags {
-    tags = var.resource_tags
-  }
-}
-
 locals {
+  project       = lookup(var.resource_tags, "Project", "vrsc-notification")
+  environment   = lookup(var.resource_tags, "Environment", "dev")
   domain_prefix = "${var.cognito_pool_domain}-${random_string.name.id}"
-  name_suffix   = "${var.resource_tags["project"]}-${var.resource_tags["environment"]}"
+  name_prefix   = "${local.project}-${local.environment}"
+  api_stage     = "vrsc-${local.environment}"
 }
 
 # Random resources

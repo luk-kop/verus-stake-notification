@@ -1,6 +1,6 @@
 # DynamoDB config
 resource "aws_dynamodb_table" "verus_stakes_txids_table" {
-  name           = "verus-stakes-txids-table-${random_id.name.hex}"
+  name           = "${local.name_prefix}-stakes-txids-table-${random_id.name.hex}"
   billing_mode   = "PROVISIONED"
   read_capacity  = 1
   write_capacity = 1
@@ -12,7 +12,7 @@ resource "aws_dynamodb_table" "verus_stakes_txids_table" {
 }
 
 resource "aws_dynamodb_table" "verus_stakes_values_table" {
-  name           = "verus-stakes-values-table-${random_id.name.hex}"
+  name           = "${local.name_prefix}-stakes-values-table-${random_id.name.hex}"
   billing_mode   = "PROVISIONED"
   read_capacity  = 1
   write_capacity = 1

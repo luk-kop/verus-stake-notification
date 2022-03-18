@@ -1,6 +1,6 @@
 # SNS config
 resource "aws_sns_topic" "verus_topic" {
-  name = "verus-topic-${random_id.name.hex}"
+  name = "${local.name_prefix}-topic-${random_id.name.hex}"
 }
 
 resource "aws_sns_topic_subscription" "verus_topic_subscription" {
