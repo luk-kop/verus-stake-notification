@@ -1,4 +1,3 @@
-# Cognito config
 resource "aws_cognito_user_pool" "verus_cognito_pool" {
   name = "${local.name_prefix}-notification-pool-${random_pet.name.id}"
   admin_create_user_config {

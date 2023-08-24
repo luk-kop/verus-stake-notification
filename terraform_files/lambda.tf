@@ -1,11 +1,10 @@
-# Lambda config
 resource "aws_lambda_function" "verus_lambda_get" {
   filename         = data.archive_file.lambda_get_zip.output_path
   function_name    = "${local.name_prefix}-lambda-get-${random_id.name.hex}"
   description      = "Returns the number of stakes and their total value for the selected time period."
   role             = aws_iam_role.verus_iam_role_for_lambda_get.arn
   handler          = "lambda_function_get.lambda_handler_get"
-  source_code_hash = filebase64sha256(data.archive_file.lambda_get_zip.output_path)
+  source_code_hash = data.archive_file.lambda_get_zip.output_base64sha256
   runtime          = "python3.8"
   environment {
     variables = {
@@ -20,7 +19,7 @@ resource "aws_lambda_function" "verus_lambda_post" {
   description      = "Put data to DynamDB and publish a msg to SNS topic when new stake appears in Verus wallet."
   role             = aws_iam_role.verus_iam_role_for_lambda_post.arn
   handler          = "lambda_function_post.lambda_handler_post"
-  source_code_hash = filebase64sha256(data.archive_file.lambda_post_zip.output_path)
+  source_code_hash = data.archive_file.lambda_post_zip.output_base64sha256
   runtime          = "python3.8"
   environment {
     variables = {

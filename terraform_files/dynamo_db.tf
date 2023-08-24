@@ -1,4 +1,3 @@
-# DynamoDB config
 resource "aws_dynamodb_table" "verus_stakes_txids_table" {
   name           = "${local.name_prefix}-stakes-txids-table-${random_id.name.hex}"
   billing_mode   = "PROVISIONED"

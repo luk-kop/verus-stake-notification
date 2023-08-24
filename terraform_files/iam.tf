@@ -1,4 +1,3 @@
-# IAM role config
 resource "aws_iam_role" "verus_iam_role_for_lambda_post" {
   name                = "${local.name_prefix}-lambda-post-${random_id.name.hex}"
   assume_role_policy  = data.aws_iam_policy_document.verus_assume_role_policy.json
