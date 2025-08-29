@@ -135,6 +135,9 @@ jobs:
           tflint --init
           tflint --recursive
 
+      - name: Run pre-commit hooks
+        uses: pre-commit/action@v3.0.0
+
   # Security Scanning
   security-scan:
     name: Security Scanning
