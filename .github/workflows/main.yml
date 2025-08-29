@@ -19,6 +19,7 @@ env:
   RUFF_VERSION: '0.12.1'
   TF_VERSION: '1.12.1'
   TF_LINT_VERSION: 'latest'
+  TRIVY_VERSION: 'v0.65.0'
 
 jobs:
   python-lint:
@@ -164,11 +165,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Manual Trivy Setup
+      - name: Setup Trivy (manual)
         uses: aquasecurity/setup-trivy@v0.2.4
         with:
           cache: true
-          version: v0.65.0
+          version: ${{ env.TRIVY_VERSION }}
 
       - name: Run Trivy security scan
         uses: aquasecurity/trivy-action@0.33.0
@@ -201,15 +202,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: ${{ runner.os }}-terraform-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: ${{ runner.os }}-terraform-
+
+      - uses: actions/cache@v4
+        name: Cache plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+
       # - name: Setup Terraform
       #   uses: hashicorp/setup-terraform@v3
       #   with:
       #     terraform_version: ${{ env.TF_VERSION }}
 
-      # - name: TFLint
+      # - name: Setup TFLint
       #   uses: terraform-linters/setup-tflint@v4
       #   with:
       #     tflint_version: ${{ env.TF_LINT_VERSION }}
+
+      # - name: Setup Trivy
+      #   uses: aquasecurity/setup-trivy@v0.2.4
+      #   with:
+      #     cache: true
+      #     version: ${{ env.TRIVY_VERSION }}
 
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.0
