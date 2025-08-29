@@ -1,6 +1,7 @@
 from pytest import fixture
 from psutil import Popen, Process
 import os
+from typing import Dict, Tuple
 
 import boto3
 from moto import mock_aws
@@ -14,7 +15,7 @@ from new_stake_script.check_new_stake import (
 )
 
 
-def create_dummy_processes() -> tuple:
+def create_dummy_processes() -> Tuple:
     """
     Create dummy 'sleep' process and dummy 'VerusProcess'.
     """
@@ -36,7 +37,7 @@ def dummy_process():
 
 
 @fixture
-def nonexistent_process():
+def nonexistent_process() -> VerusProcess:
     """
     Instantiate VerusProcess object with non-existed process.
     """
@@ -46,7 +47,7 @@ def nonexistent_process():
 
 
 @fixture
-def dummy_api_env_file_content() -> dict:
+def dummy_api_env_file_content() -> Dict:
     """
     Return dummy env_data for ApiGatewayCognito class.
     """
@@ -61,7 +62,7 @@ def dummy_api_env_file_content() -> dict:
 
 
 @fixture
-def api_cognito(mocker, dummy_api_env_file_content) -> dict:
+def api_cognito(mocker, dummy_api_env_file_content):
     """
     Create ApiGatewayCognito object with mocked API env data.
     """
@@ -74,7 +75,7 @@ def api_cognito(mocker, dummy_api_env_file_content) -> dict:
 
 
 @fixture
-def dummy_tx_hist_file_content() -> dict:
+def dummy_tx_hist_file_content() -> Dict:
     """
     Return initial tx file content.
     """
@@ -110,7 +111,7 @@ def verus_stake_checker(mocker, dummy_api_env_file_content, dummy_tx_hist_file_c
 
 
 @fixture
-def dummy_wallet_no_stake():
+def dummy_wallet_no_stake() -> Dict:
     """
     Return dummy Verus wallet info (no stake) with limited data.
     """
@@ -119,7 +120,7 @@ def dummy_wallet_no_stake():
 
 
 @fixture
-def dummy_wallet_new_stake():
+def dummy_wallet_new_stake() -> Dict:
     """
     Return dummy Verus wallet info (new stake) with limited data.
     """
@@ -128,7 +129,7 @@ def dummy_wallet_new_stake():
 
 
 @fixture
-def aws_credentials():
+def aws_credentials() -> None:
     """
     Mocked AWS Credentials for moto.
     """
