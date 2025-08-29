@@ -146,7 +146,7 @@ def dynamodb(aws_credentials):
     Create mocked DynamoDB service resource.
     """
     with mock_aws():
-        yield boto3.resource("dynamodb")
+        yield boto3.resource("dynamodb", region="eu-central-1")
 
 
 @fixture
