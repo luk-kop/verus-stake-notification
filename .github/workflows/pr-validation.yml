@@ -4,11 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-env:
-  PYTHON_VERSION: '3.11'
-  RUFF_VERSION: '0.12.1'
-  TERRAFORM_VERSION: '1.12.1'
-
 jobs:
   validate-pr:
     name: Validate Pull Request

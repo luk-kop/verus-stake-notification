@@ -17,7 +17,8 @@ on:
 env:
   PYTHON_VERSION: '3.11'
   RUFF_VERSION: '0.12.1'
-  TERRAFORM_VERSION: '1.12.1'
+  TF_VERSION: '1.12.1'
+  TF_LINT_VERSION: 'latest'
 
 jobs:
   python-lint:
@@ -109,7 +110,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Format Check
         run: |
@@ -169,11 +170,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   pre-commit:
-    name: Security Scanning
+    name: Pre-Commit hooks
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: ${{ env.TF_LINT_VERSION }}
 
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.0
