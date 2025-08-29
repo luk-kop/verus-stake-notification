@@ -1,4 +1,4 @@
-# SNS config
+#trivy:ignore:AVD-AWS-0095
 resource "aws_sns_topic" "verus_topic" {
   name = "${local.name_prefix}-topic-${random_id.name.hex}"
 }

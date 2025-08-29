@@ -1,8 +1,8 @@
 # Verus stake notification
 
-[![Python 3.8.5](https://img.shields.io/badge/python-3.8.5-blue.svg)](https://www.python.org/downloads/release/python-377/)
+[![Python 3.11](https://img.shields.io/badge/python-3.8.5-blue.svg)](https://www.python.org/downloads/release/python-377/)
 [![Boto3](https://img.shields.io/badge/Boto3-1.17.78-blue.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-[![Terraform](https://img.shields.io/badge/Terraform->=1.0.0-blueviolet.svg)](https://www.terraform.io/)
+[![Terraform](https://img.shields.io/badge/Terraform-~>1.12.1-blueviolet.svg)](https://www.terraform.io/)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
 > The **Verus stake notification** is an application that monitors the state of your **Verus Coin (VRSC)** cryptocurrency wallet.
@@ -49,10 +49,10 @@ Python third party packages:
 
 Other prerequisites:
 * The **Verus Coin (VRSC) CLI wallet** running on some Linux distribution. You can find appropriate wallet binaries on Verus Coin (VRSC) project website - [Verus wallet](https://verus.io/wallet/command-wallet).
-* The AWS account.  
+* The AWS account.
 * Before using scripts, you need to set up authentication credentials for your AWS account (with programmatic access) using either the IAM Management Console or the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html) tool.
 * The [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) tool must be installed in order to successfully deploy the AWS resources using it.
-* Remote `Terraform` state file backend with Amazon S3 and DynamoDB services. 
+* Remote `Terraform` state file backend with Amazon S3 and DynamoDB services.
 * The `virtualenv` package already installed on the OS level.
 
 ## Build and run the application
@@ -60,7 +60,7 @@ Other prerequisites:
 The project creation process is divided into two phases:
 1. Deployment of the AWS resources (infrastructure) with `Terraform` tool.
 2. Setup script for monitoring the VRSC wallet.
-> :warning: **Note:** It is recommended to build the AWS infrastructure on a different host than the one running the VRSC wallet (fe. your localhost) . 
+> :warning: **Note:** It is recommended to build the AWS infrastructure on a different host than the one running the VRSC wallet (fe. your localhost) .
 
 In both phases we will use the `virtualenv` tool to build the application.
 
@@ -73,7 +73,7 @@ In both phases we will use the `virtualenv` tool to build the application.
 2. On the infrastructure building host run following commands in order to create virtual environment and install the required packages.
     ```bash
     $ virtualenv venv
-    # or 
+    # or
     $ python3 -m venv venv
     $ source venv/bin/activate
     (venv) $ pip install -r requirements.txt
@@ -84,17 +84,17 @@ In both phases we will use the `virtualenv` tool to build the application.
     ```bash
     (venv) $ cp .env-example .env
     ```
-    - create `backend.hcl` file (`Terraform` remote state configuration) inside `terraform_files` dir. Copy example file and edit necessary data.
+    - create `backend.hcl` file (`Terraform` remote state configuration) inside `terraform` dir. Copy example file and edit necessary data.
     ```bash
-    (venv) $ cd terraform_files/
+    (venv) $ cd terraform/
     (venv) $ cp backend-example.hcl backend.hcl
-   ```    
-   
-4. To build the AWS resources with `Terraform` tool use `terraform_resources.py` script.
-    Before running `terraform_resources.py` state remote state file backend configuration.    
-    
+   ```
 
-    #### Script `terraform_resources.py` usage:   
+4. To build the AWS resources with `Terraform` tool use `terraform_resources.py` script.
+    Before running `terraform_resources.py` state remote state file backend configuration.
+
+
+    #### Script `terraform_resources.py` usage:
     ```bash
     usage: terraform_resources.py [-h] [--region REGION] [--profile PROFILE] {init,build,destroy} ...
 
@@ -104,7 +104,7 @@ In both phases we will use the `virtualenv` tool to build the application.
       -h, --help            show this help message and exit
       --region REGION       AWS region in which resources will be deployed (default: eu-west-1)
       --profile PROFILE     AWS profile used to deploy resources (default: default)
-    
+
     Valid actions:
       {init,build,destroy}
         init                Initialize Terraform working directory
@@ -123,7 +123,7 @@ In both phases we will use the `virtualenv` tool to build the application.
 
 5. Once the AWS resources are properly deployed, you should copy `new_stake_script` directory to the host where the VRSC wallet is running.
     ```bash
-    # example of a copying a dictionary to remote host using the rsync tool 
+    # example of a copying a dictionary to remote host using the rsync tool
     $ rsync -avzP new_stake_script/ user@your-vrsc-wallet-host:~/new_stake_script/
     ```
    > :warning: **Note:** After setting up the AWS resources correctly and copying the `new_stake_script` directory to the host with the VRSC wallet running, for testing purposes you can get **Cognito Access Token** and make a test call to the API Gateway with `get_cognito_token.sh`.
@@ -131,7 +131,7 @@ In both phases we will use the `virtualenv` tool to build the application.
     ```bash
     $ cd ~/new_stake_script/
     $ virtualenv venv
-    # or 
+    # or
     $ python3 -m venv venv
     $ source venv/bin/activate
     (venv) $ pip install -r requirements-script.txt
@@ -150,7 +150,7 @@ In both phases we will use the `virtualenv` tool to build the application.
     ```bash
     (venv) $ python terraform_resources.py destroy
     ```
-     
+
 ## Run additional scripts
 
 - Extra scripts should be run on the host where the VRSC wallet is running and after the AWS resources deployment.

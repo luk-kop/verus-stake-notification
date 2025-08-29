@@ -14,7 +14,7 @@ import requests
 
 
 # Load custom loggers config - Logging only to file or only to CLI
-logging_conf_path = Path(__file__).resolve().parent.joinpath('logging.conf')
+logging_conf_path = Path(__file__).resolve().parent.joinpath("logging.conf")
 config.fileConfig(logging_conf_path)
 
 
@@ -22,7 +22,8 @@ class VerusProcess:
     """
     The class representing Verus process.
     """
-    def __init__(self, name: str = 'verusd') -> None:
+
+    def __init__(self, name: str = "verusd") -> None:
         self.name = name
 
     @property
@@ -34,7 +35,9 @@ class VerusProcess:
         """
         Return process if exist.
         """
-        process_list_by_name = [proc for proc in psutil.process_iter() if proc.name() == self.name]
+        process_list_by_name = [
+            proc for proc in psutil.process_iter() if proc.name() == self.name
+        ]
         if process_list_by_name:
             return process_list_by_name[0]
 
@@ -45,7 +48,7 @@ class VerusProcess:
         """
         if self.status:
             return self._process.cwd()
-        return ''
+        return ""
 
     def _check_process_status(self) -> bool:
         """
@@ -60,9 +63,15 @@ class VerusStakeChecker:
     """
     The class responsible for checking to confirm that a new stake has appeared in Verus wallet.
     """
-    def __init__(self, tx_hist_filename: str, env_api_filename: str = '.env-api', cli_logging: bool = False) -> None:
+
+    def __init__(
+        self,
+        tx_hist_filename: str,
+        env_api_filename: str = ".env-api",
+        cli_logging: bool = False,
+    ) -> None:
         self.verus_process = VerusProcess()
-        self.verus_script_name = 'verus'
+        self.verus_script_name = "verus"
         # tx data history filename (JSON)
         self.tx_hist_filename = tx_hist_filename
         self.env_api_filename = env_api_filename
@@ -71,9 +80,9 @@ class VerusStakeChecker:
         self.stake_txs = StakeTransactions()
         # Set logger: True - log output to CLI, False - log output to log file
         if cli_logging:
-            self.logger = logging.getLogger('cli_log')
+            self.logger = logging.getLogger("cli_log")
         else:
-            self.logger = logging.getLogger('file_log')
+            self.logger = logging.getLogger("file_log")
 
     def run(self) -> None:
         """
@@ -87,18 +96,16 @@ class VerusStakeChecker:
             api = ApiGatewayCognito(env_api_filename=self.env_api_filename)
             new_stake_txs = self._get_wallet_new_stake_txs()
             for tx in new_stake_txs:
-                data_to_post = {
-                    'txid': tx.txid,
-                    'time': tx.time,
-                    'amount': tx.amount
-                }
-                api.call(method='post', data=data_to_post)
-                tx_timestamp_format = datetime.fromtimestamp(data_to_post['time']).strftime('%Y-%m-%d %H:%M:%SLT')
-                self.logger.info(f'New stake in wallet at {tx_timestamp_format}')
+                data_to_post = {"txid": tx.txid, "time": tx.time, "amount": tx.amount}
+                api.call(method="post", data=data_to_post)
+                tx_timestamp_format = datetime.fromtimestamp(
+                    data_to_post["time"]
+                ).strftime("%Y-%m-%d %H:%M:%SLT")
+                self.logger.info(f"New stake in wallet at {tx_timestamp_format}")
             self._update_stake_txid()
             self._store_new_tx_data()
             return
-        self.logger.error('verusd process is not running')
+        self.logger.error("verusd process is not running")
 
     @property
     def verus_script_path(self) -> str:
@@ -120,48 +127,45 @@ class VerusStakeChecker:
         """
         Initial content for tx history file.
         """
-        content = {
-            'txid_stake_previous': '',
-            'txcount_previous': '0'
-        }
+        content = {"txid_stake_previous": "", "txcount_previous": "0"}
         return content
 
     def _update_txcount(self) -> None:
         """
         Update 'txcount' data with current value.
         """
-        self.tx_hist_data['txcount_previous'] = self.txcount_current
+        self.tx_hist_data["txcount_previous"] = self.txcount_current
 
-    def _update_stake_txid(self, txid: str = '') -> None:
+    def _update_stake_txid(self, txid: str = "") -> None:
         """
         Update 'txid_stake' data with current or most recent value.
         """
         if txid:
-            self.tx_hist_data['txid_stake_previous'] = txid
+            self.tx_hist_data["txid_stake_previous"] = txid
         else:
             # Update 'txid_stake' data with last known stake txid in wallet
-            self.tx_hist_data['txid_stake_previous'] = self._last_wallet_stake_txid
+            self.tx_hist_data["txid_stake_previous"] = self._last_wallet_stake_txid
 
     @property
     def txcount_current(self) -> str:
         """
         Return current 'txcount' value.
         """
-        return str(self.wallet_info.get('txcount', 0))
+        return str(self.wallet_info.get("txcount", 0))
 
     @property
     def txcount_hist(self) -> str:
         """
         Return 'txcount' value stored in tx history file (recent value).
         """
-        return self.tx_hist_data.get('txcount_previous', 0)
+        return self.tx_hist_data.get("txcount_previous", 0)
 
     @property
     def _txid_stake_hist(self) -> str:
         """
         Return 'txid' of last stake stored in tx history file (recent value).
         """
-        return self.tx_hist_data.get('txid_stake_previous', '')
+        return self.tx_hist_data.get("txid_stake_previous", "")
 
     def _create_tx_hist_file(self, content: dict = None) -> None:
         """
@@ -169,7 +173,7 @@ class VerusStakeChecker:
         """
         if not content:
             content = self._initial_tx_hist_file_content
-        with open(self.tx_hist_file_path, 'w') as outfile:
+        with open(self.tx_hist_file_path, "w") as outfile:
             json.dump(content, outfile)
 
     def _read_tx_hist_file(self) -> dict:
@@ -193,7 +197,7 @@ class VerusStakeChecker:
         """
         Get detailed walletinfo from Verus process api.
         """
-        options = [self.verus_script_path, 'getwalletinfo']
+        options = [self.verus_script_path, "getwalletinfo"]
         wallet_info = self._process_call(options=options)
         return wallet_info if wallet_info else {}
 
@@ -216,16 +220,16 @@ class VerusStakeChecker:
         """
         Return list of last 'count' stake transactions (txs) in wallet.
         """
-        options = [self.verus_script_path, 'listtransactions', '*', str(count)]
+        options = [self.verus_script_path, "listtransactions", "*", str(count)]
         response = self._process_call(options=options)
         txs = response if response else []
         for tx in txs:
-            if tx['category'] == 'mint':
+            if tx["category"] == "mint":
                 stake_tx = StakeTransaction(
-                    txid=tx['txid'],
-                    time=tx['time'],
-                    amount=tx['amount'],
-                    address=tx['address']
+                    txid=tx["txid"],
+                    time=tx["time"],
+                    amount=tx["amount"],
+                    address=tx["address"],
                 )
                 self.stake_txs.add_stake_tx(stake_tx)
 
@@ -255,6 +259,7 @@ class StakeTransaction:
     """
     The class representing single stake transaction (tx) in wallet.
     """
+
     txid: str
     time: int
     amount: float
@@ -265,6 +270,7 @@ class StakeTransactions:
     """
     The class representing collection of StakeTransaction object.
     """
+
     def __init__(self):
         self.txs = []
 
@@ -273,7 +279,7 @@ class StakeTransactions:
         Add StakeTransaction to collection.
         """
         if not isinstance(tx, StakeTransaction):
-            raise TypeError('Must be StakeTransaction object.')
+            raise TypeError("Must be StakeTransaction object.")
         self.txs.append(tx)
 
     @property
@@ -297,7 +303,7 @@ class StakeTransactions:
         try:
             return self.stakes_txids[-1]
         except IndexError:
-            return ''
+            return ""
 
     def get_stake_tx(self, txid: str) -> Union[StakeTransaction, None]:
         """
@@ -323,20 +329,23 @@ class ApiGatewayCognito:
     """
     Class responsible for calling external API using the access token fetched from Cognito service.
     """
-    def __init__(self, env_api_filename: str = '.env-api', cli_logging: bool = False) -> None:
+
+    def __init__(
+        self, env_api_filename: str = ".env-api", cli_logging: bool = False
+    ) -> None:
         self.env_api_filename = env_api_filename
         # Set logger: True - log output to CLI, False - log output to log file
         if cli_logging:
-            self.logger = logging.getLogger('cli_log')
+            self.logger = logging.getLogger("cli_log")
         else:
-            self.logger = logging.getLogger('file_log')
+            self.logger = logging.getLogger("file_log")
         # Load API related env vars from API env file (env_api_filename).
         env_data = self._get_env_data()
-        self.cognito_token_url = env_data['COGNITO_TOKEN_URL']
-        self.cognito_client_id = env_data['COGNITO_CLIENT_ID']
-        self.cognito_client_secret = env_data['COGNITO_CLIENT_SECRET']
-        self.scopes = env_data['COGNITO_CUSTOM_SCOPES']
-        self.api_gateway_url = env_data['NOTIFICATION_API_URL']
+        self.cognito_token_url = env_data["COGNITO_TOKEN_URL"]
+        self.cognito_client_id = env_data["COGNITO_CLIENT_ID"]
+        self.cognito_client_secret = env_data["COGNITO_CLIENT_SECRET"]
+        self.scopes = env_data["COGNITO_CUSTOM_SCOPES"]
+        self.api_gateway_url = env_data["NOTIFICATION_API_URL"]
 
     def _get_env_data(self) -> dict:
         """
@@ -352,18 +361,20 @@ class ApiGatewayCognito:
         If not the script is terminated and relevant error is logged.
         """
         env_required = [
-            'NOTIFICATION_API_URL',
-            'COGNITO_CLIENT_ID',
-            'COGNITO_CLIENT_SECRET',
-            'COGNITO_CUSTOM_SCOPES',
-            'COGNITO_TOKEN_URL'
+            "NOTIFICATION_API_URL",
+            "COGNITO_CLIENT_ID",
+            "COGNITO_CLIENT_SECRET",
+            "COGNITO_CUSTOM_SCOPES",
+            "COGNITO_TOKEN_URL",
         ]
         for env in env_required:
             if env not in env_data.keys():
-                self.logger.error(f'The {env} in {self.env_api_filename} is missing.')
+                self.logger.error(f"The {env} in {self.env_api_filename} is missing.")
                 sys.exit()
-            elif env_data.get(env) == '':
-                self.logger.error(f'The {env} value in {self.env_api_filename} is not specified.')
+            elif env_data.get(env) == "":
+                self.logger.error(
+                    f"The {env} value in {self.env_api_filename} is not specified."
+                )
                 sys.exit()
 
     def _load_env_data(self) -> dict:
@@ -373,7 +384,7 @@ class ApiGatewayCognito:
         """
         env_path = self.env_api_file_path
         if not env_path.exists() or not env_path.is_file():
-            self.logger.error(f'File {env_path} not exists!')
+            self.logger.error(f"File {env_path} not exists!")
             sys.exit()
         return dotenv_values(env_path)
 
@@ -383,21 +394,23 @@ class ApiGatewayCognito:
         """
         self.check_http_method(method=method)
         access_token = self._get_access_token()
-        headers = {
-            'Authorization': access_token
-        }
+        headers = {"Authorization": access_token}
         try:
-            if method.lower() == 'get':
+            if method.lower() == "get":
                 # data = {'year': '2021', 'month': '11'}
-                response = requests.get(self.api_gateway_url, headers=headers, params=data)
+                response = requests.get(
+                    self.api_gateway_url, headers=headers, params=data
+                )
                 self._check_response_status(response)
                 return response.json()
             else:
-                response = requests.post(self.api_gateway_url, headers=headers, json=data)
+                response = requests.post(
+                    self.api_gateway_url, headers=headers, json=data
+                )
                 self._check_response_status(response)
                 return response.json()
         except requests.exceptions.RequestException:
-            self.logger.error(f'API call: failed to establish a new connection')
+            self.logger.error("API call: failed to establish a new connection")
             sys.exit()
 
     @property
@@ -412,45 +425,44 @@ class ApiGatewayCognito:
         """
         Check whether the HTTP method is allowed for API call.
         """
-        if method.lower() not in ['post', 'get']:
-            self.logger.error(f'API method: {method} is not allowed HTTP method')
+        if method.lower() not in ["post", "get"]:
+            self.logger.error(f"API method: {method} is not allowed HTTP method")
             sys.exit()
 
     def _get_access_token(self) -> str:
         """
         Method retrieves the access token from Amazon Cognito authorization server.
         """
-        body = {
-            'grant_type': 'client_credentials',
-            'scope': self.scopes
-        }
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
+        body = {"grant_type": "client_credentials", "scope": self.scopes}
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
         try:
             response = requests.post(
                 url=self.cognito_token_url,
                 data=body,
                 auth=(self.cognito_client_id, self.cognito_client_secret),
-                headers=headers
+                headers=headers,
             )
         except requests.exceptions.RequestException:
-            self.logger.error(f'API access token: failed to establish a new connection')
+            self.logger.error("API access token: failed to establish a new connection")
             sys.exit()
         self._check_response_status(response)
-        return response.json()['access_token']
+        return response.json()["access_token"]
 
     def _check_response_status(self, response) -> None:
         """
         Exit script when response status code different than 200.
         """
         if response.status_code != 200:
-            response_text = (response.text[:87] + '...') if len(response.text) > 90 else response.text
-            self.logger.error(f'API response: {response.status_code} {response_text}')
+            response_text = (
+                (response.text[:87] + "...")
+                if len(response.text) > 90
+                else response.text
+            )
+            self.logger.error(f"API response: {response.status_code} {response_text}")
             sys.exit()
 
 
-if __name__ == '__main__':
-    verus_check = VerusStakeChecker(tx_hist_filename='tx_history.json')
+if __name__ == "__main__":
+    verus_check = VerusStakeChecker(tx_hist_filename="tx_history.json")
     # Run Verus check
     verus_check.run()

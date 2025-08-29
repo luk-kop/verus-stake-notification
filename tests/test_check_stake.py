@@ -2,7 +2,11 @@ import os
 from pathlib import Path
 from unittest import mock
 
-from new_stake_script.check_new_stake import StakeTransaction, StakeTransactions, VerusStakeChecker
+from new_stake_script.check_new_stake import (
+    StakeTransaction,
+    StakeTransactions,
+    VerusStakeChecker,
+)
 
 
 def test_process_exist(dummy_process):
@@ -38,7 +42,7 @@ def test_process_not_exist_directory(nonexistent_process):
     WHEN created VerusProcess object with 'name' attribute that represent non-existed process
     THEN declared process's base directory is ''
     """
-    assert nonexistent_process.directory == ''
+    assert nonexistent_process.directory == ""
 
 
 def test_verus_script_path(verus_stake_checker):
@@ -48,7 +52,7 @@ def test_verus_script_path(verus_stake_checker):
     THEN script's base directory is cwd + script name
     """
     script_path = verus_stake_checker.verus_script_path
-    assert script_path == Path(os.getcwd()).joinpath('verus')
+    assert script_path == Path(os.getcwd()).joinpath("verus")
 
 
 def test_wallet_info_txcount_current(verus_stake_checker, dummy_wallet_no_stake):
@@ -58,10 +62,10 @@ def test_wallet_info_txcount_current(verus_stake_checker, dummy_wallet_no_stake)
     THEN current txtcount changed to value from dummy wallet info
     """
     # Check txcount value without wallet_info data
-    assert verus_stake_checker.txcount_current == '0'
+    assert verus_stake_checker.txcount_current == "0"
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
-    assert verus_stake_checker.txcount_current == '10'
+    assert verus_stake_checker.txcount_current == "10"
 
 
 def test_wallet_info_txcount_hist_on_start(verus_stake_checker):
@@ -71,7 +75,7 @@ def test_wallet_info_txcount_hist_on_start(verus_stake_checker):
     THEN last (historical) txtcount should be equal 0 on start
     """
     # Check txcount last value on start
-    assert verus_stake_checker.txcount_hist == '0'
+    assert verus_stake_checker.txcount_hist == "0"
 
 
 def test_wallet_info_txcount_different(verus_stake_checker, dummy_wallet_no_stake):
@@ -82,11 +86,13 @@ def test_wallet_info_txcount_different(verus_stake_checker, dummy_wallet_no_stak
     """
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
-    assert verus_stake_checker.txcount_hist == '0'
-    assert verus_stake_checker.txcount_current == '10'
+    assert verus_stake_checker.txcount_hist == "0"
+    assert verus_stake_checker.txcount_current == "10"
 
 
-def test_verus_state_checker_run_different_txcounts(mocker, verus_stake_checker, dummy_wallet_no_stake, dummy_list_txs):
+def test_verus_state_checker_run_different_txcounts(
+    mocker, verus_stake_checker, dummy_wallet_no_stake, dummy_list_txs
+):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess and dummy wallet info data
@@ -97,13 +103,15 @@ def test_verus_state_checker_run_different_txcounts(mocker, verus_stake_checker,
     # Before run txcounts have different values
     assert verus_stake_checker.txcount_hist != verus_stake_checker.txcount_current
     # Mock _process_call() method
-    mocker.patch.object(VerusStakeChecker, '_process_call', return_value=dummy_list_txs)
+    mocker.patch.object(VerusStakeChecker, "_process_call", return_value=dummy_list_txs)
     # After run txcounts should have the same values
     verus_stake_checker.run()
     assert verus_stake_checker.txcount_hist == verus_stake_checker.txcount_current
 
 
-def test_verus_state_checker_run_equal_txcounts(mocker, verus_stake_checker, dummy_wallet_no_stake, dummy_list_txs):
+def test_verus_state_checker_run_equal_txcounts(
+    mocker, verus_stake_checker, dummy_wallet_no_stake, dummy_list_txs
+):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess and dummy wallet info data (no stake in wallet)
@@ -112,7 +120,7 @@ def test_verus_state_checker_run_equal_txcounts(mocker, verus_stake_checker, dum
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
     # Mock _process_call() method
-    mocker.patch.object(VerusStakeChecker, '_process_call', return_value=dummy_list_txs)
+    mocker.patch.object(VerusStakeChecker, "_process_call", return_value=dummy_list_txs)
     # First run - after first run txcounts should have the same values
     verus_stake_checker.run()
     # Store txcounta after first run
@@ -126,8 +134,13 @@ def test_verus_state_checker_run_equal_txcounts(mocker, verus_stake_checker, dum
     assert verus_stake_checker.txcount_current == txcount_current_first_run
 
 
-def test_verus_state_checker_run_new_stake(mocker, verus_stake_checker, dummy_wallet_no_stake,
-                                           dummy_wallet_new_stake, dummy_list_txs):
+def test_verus_state_checker_run_new_stake(
+    mocker,
+    verus_stake_checker,
+    dummy_wallet_no_stake,
+    dummy_wallet_new_stake,
+    dummy_list_txs,
+):
     """
     GIVEN VerusStakeChecker object
     WHEN created VerusStakeChecker with dummy VerusProcess and dummy wallet info data (new stake in wallet)
@@ -136,7 +149,7 @@ def test_verus_state_checker_run_new_stake(mocker, verus_stake_checker, dummy_wa
     # Assign dummy wallet to wallet_info attribute
     verus_stake_checker.wallet_info = dummy_wallet_no_stake
     # Mock _process_call() method
-    mocker.patch.object(VerusStakeChecker, '_process_call', return_value=dummy_list_txs)
+    mocker.patch.object(VerusStakeChecker, "_process_call", return_value=dummy_list_txs)
     # First run - after first run txcounts should have the same values
     verus_stake_checker.run()
     txcont_last_first_run = verus_stake_checker.txcount_hist
@@ -157,22 +170,22 @@ def test_stake_transaction_correct():
     THEN StakeTransaction object's attributes are correct
     """
     dummy_tx = {
-        'address': 'RXXX',
-        'category': 'mint',
-        'amount': 12.00000000,
-        'txid': 'tx01',
-        'time': 1632511111
+        "address": "RXXX",
+        "category": "mint",
+        "amount": 12.00000000,
+        "txid": "tx01",
+        "time": 1632511111,
     }
     tx = StakeTransaction(
-        txid=dummy_tx['txid'],
-        time=dummy_tx['time'],
-        amount=dummy_tx['amount'],
-        address=dummy_tx['address']
+        txid=dummy_tx["txid"],
+        time=dummy_tx["time"],
+        amount=dummy_tx["amount"],
+        address=dummy_tx["address"],
     )
-    assert tx.txid == 'tx01'
+    assert tx.txid == "tx01"
     assert tx.time == 1632511111
     assert tx.amount == 12.00000000
-    assert tx.address == 'RXXX'
+    assert tx.address == "RXXX"
 
 
 def test_stake_transactions_correct_order(dummy_stake_txs):
@@ -199,7 +212,7 @@ def test_stake_transactions_stakes_txids(dummy_stake_txs_collection):
     """
     stake_txs = dummy_stake_txs_collection
     most_recent_stake_txid = stake_txs.stakes_txids
-    assert most_recent_stake_txid == ['tx01', 'tx02', 'tx03', 'tx04']
+    assert most_recent_stake_txid == ["tx01", "tx02", "tx03", "tx04"]
 
 
 def test_stake_transactions_get_last_stake_txid(dummy_stake_txs_collection):
@@ -210,7 +223,7 @@ def test_stake_transactions_get_last_stake_txid(dummy_stake_txs_collection):
     """
     stake_txs = dummy_stake_txs_collection
     most_recent_stake_txid = stake_txs.get_last_stake_txid()
-    assert most_recent_stake_txid == 'tx04'
+    assert most_recent_stake_txid == "tx04"
 
 
 def test_stake_transactions_get_tx_exist(dummy_stake_txs_collection):
@@ -220,10 +233,10 @@ def test_stake_transactions_get_tx_exist(dummy_stake_txs_collection):
     THEN the appropriate stake tx is returned
     """
     stake_txs = dummy_stake_txs_collection
-    tx_01 = stake_txs.get_stake_tx(txid='tx01')
-    tx_04 = stake_txs.get_stake_tx(txid='tx04')
-    assert tx_01.txid == 'tx01'
-    assert tx_04.txid == 'tx04'
+    tx_01 = stake_txs.get_stake_tx(txid="tx01")
+    tx_04 = stake_txs.get_stake_tx(txid="tx04")
+    assert tx_01.txid == "tx01"
+    assert tx_04.txid == "tx04"
 
 
 def test_stake_transactions_get_tx_not_exist(dummy_stake_txs_collection):
@@ -233,8 +246,8 @@ def test_stake_transactions_get_tx_not_exist(dummy_stake_txs_collection):
     THEN the appropriate stake tx is returned
     """
     stake_txs = dummy_stake_txs_collection
-    tx_01 = stake_txs.get_stake_tx(txid='1111')
-    tx_04 = stake_txs.get_stake_tx(txid='2222')
+    tx_01 = stake_txs.get_stake_tx(txid="1111")
+    tx_04 = stake_txs.get_stake_tx(txid="2222")
     assert tx_01 is None
     assert tx_04 is None
 
@@ -246,9 +259,9 @@ def test_stake_transactions_get_new_stakes(dummy_stake_txs_collection):
     THEN the list of newer txs than the specified txid is returned
     """
     stake_txs = dummy_stake_txs_collection
-    new_stake_txs = stake_txs.get_new_stakes_txs(txid_last='tx02')
+    new_stake_txs = stake_txs.get_new_stakes_txs(txid_last="tx02")
     new_stake_txids = [tx.txid for tx in new_stake_txs]
-    assert new_stake_txids == ['tx03', 'tx04']
+    assert new_stake_txids == ["tx03", "tx04"]
 
 
 def test_stake_transactions_get_new_stakes_txid_recent(dummy_stake_txs_collection):
@@ -258,7 +271,7 @@ def test_stake_transactions_get_new_stakes_txid_recent(dummy_stake_txs_collectio
     THEN the empty list is returned
     """
     stake_txs = dummy_stake_txs_collection
-    new_stake_txs = stake_txs.get_new_stakes_txs(txid_last='tx04')
+    new_stake_txs = stake_txs.get_new_stakes_txs(txid_last="tx04")
     new_stake_txids = [tx.txid for tx in new_stake_txs]
     assert new_stake_txids == []
 
@@ -270,7 +283,7 @@ def test_stake_transactions_get_new_stakes_txid_not_exist(dummy_stake_txs_collec
     THEN the empty list is returned
     """
     stake_txs = dummy_stake_txs_collection
-    new_stake_txs = stake_txs.get_new_stakes_txs(txid_last='xxx')
+    new_stake_txs = stake_txs.get_new_stakes_txs(txid_last="xxx")
     new_stake_txids = [tx.txid for tx in new_stake_txs]
     assert new_stake_txids == []
 
@@ -281,11 +294,21 @@ def test_api_gateway_cognito(dummy_api_env_file_content, api_cognito):
     WHEN created ApiGatewayCognito object with specified env_data
     THEN object's attributes data is equal to specified in env_data
     """
-    assert api_cognito.cognito_token_url == dummy_api_env_file_content['COGNITO_TOKEN_URL']
-    assert api_cognito.cognito_client_id == dummy_api_env_file_content['COGNITO_CLIENT_ID']
-    assert api_cognito.cognito_client_secret == dummy_api_env_file_content['COGNITO_CLIENT_SECRET']
-    assert api_cognito.scopes == dummy_api_env_file_content['COGNITO_CUSTOM_SCOPES']
-    assert api_cognito.api_gateway_url == dummy_api_env_file_content['NOTIFICATION_API_URL']
+    assert (
+        api_cognito.cognito_token_url == dummy_api_env_file_content["COGNITO_TOKEN_URL"]
+    )
+    assert (
+        api_cognito.cognito_client_id == dummy_api_env_file_content["COGNITO_CLIENT_ID"]
+    )
+    assert (
+        api_cognito.cognito_client_secret
+        == dummy_api_env_file_content["COGNITO_CLIENT_SECRET"]
+    )
+    assert api_cognito.scopes == dummy_api_env_file_content["COGNITO_CUSTOM_SCOPES"]
+    assert (
+        api_cognito.api_gateway_url
+        == dummy_api_env_file_content["NOTIFICATION_API_URL"]
+    )
 
 
 def test_api_gateway_cognito_check_response_status_200(api_cognito):
@@ -306,12 +329,12 @@ def test_api_gateway_cognito_check_response_status_not_200(mocker, api_cognito):
     THEN sys.exit is called
     """
     # Mock logger attr
-    mocker.patch.object(api_cognito, 'logger')
+    mocker.patch.object(api_cognito, "logger")
     # Mock HTTP response
     mocked_response_obj = mock.Mock()
     mocked_response_obj.status_code = 404
-    mocked_response_obj.text = 'Sth is wrong'
-    mocked_exit = mocker.patch('sys.exit')
+    mocked_response_obj.text = "Sth is wrong"
+    mocked_exit = mocker.patch("sys.exit")
     api_cognito._check_response_status(response=mocked_response_obj)
     # Assertions
     mocked_exit.assert_called_once()
@@ -326,11 +349,13 @@ def test_api_gateway_cognito_check_response_status_not_200_logger(mocker, api_co
     """
     mocked_response_obj = mock.Mock()
     mocked_response_obj.status_code = 404
-    mocked_response_obj.text = 'Sth is wrong'
-    mocker.patch('sys.exit')
+    mocked_response_obj.text = "Sth is wrong"
+    mocker.patch("sys.exit")
     # mocked_logger = mocker.patch('new_stake_script.check_new_stake.logger')
-    mocked_logger = mocker.patch.object(api_cognito, 'logger')
-    desired_log_entry = f'API response: {mocked_response_obj.status_code} {mocked_response_obj.text}'
+    mocked_logger = mocker.patch.object(api_cognito, "logger")
+    desired_log_entry = (
+        f"API response: {mocked_response_obj.status_code} {mocked_response_obj.text}"
+    )
     api_cognito._check_response_status(response=mocked_response_obj)
     # Assertions
     mocked_logger.error.assert_called_with(desired_log_entry)
@@ -343,13 +368,13 @@ def test_api_gateway_cognito_get_access_token(mocker, api_cognito):
     THEN valid access_token is returned
     """
     # Mock requests.post method
-    mocked_post = mocker.patch('requests.post', autospec=True)
+    mocked_post = mocker.patch("requests.post", autospec=True)
     mocked_response_obj = mock.Mock()
     mocked_response_obj.status_code = 200
-    mocked_response_obj.json = lambda: {'access_token': 'valid-token'}
+    mocked_response_obj.json = lambda: {"access_token": "valid-token"}
     mocked_post.return_value = mocked_response_obj
     # Mock requests.post
-    assert api_cognito._get_access_token() == 'valid-token'
+    assert api_cognito._get_access_token() == "valid-token"
 
 
 def test_api_gateway_cognito_check_http_method_not_allowed(mocker, api_cognito):
@@ -359,10 +384,10 @@ def test_api_gateway_cognito_check_http_method_not_allowed(mocker, api_cognito):
     THEN sys.exit is called
     """
     # Mock logger attr
-    mocker.patch.object(api_cognito, 'logger')
+    mocker.patch.object(api_cognito, "logger")
     # Mock sys.exit method
-    mocked_exit = mocker.patch('sys.exit')
-    api_cognito.check_http_method(method='PUT')
+    mocked_exit = mocker.patch("sys.exit")
+    api_cognito.check_http_method(method="PUT")
     # Assertions
     mocked_exit.assert_called_once()
     mocked_exit.assert_called()
@@ -374,5 +399,5 @@ def test_api_gateway_cognito_check_http_method_allowed(mocker, api_cognito):
     WHEN invoked _check_method_is_allowed() method with allowed HTTP methods
     THEN None is returned
     """
-    for method in ['POST', 'GET', 'get', 'post']:
+    for method in ["POST", "GET", "get", "post"]:
         assert api_cognito.check_http_method(method=method) is None
