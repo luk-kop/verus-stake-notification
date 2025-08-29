@@ -135,9 +135,6 @@ jobs:
           tflint --init
           tflint --recursive
 
-      - name: Run pre-commit hooks
-        uses: pre-commit/action@v3.0.0
-
   # Security Scanning
   security-scan:
     name: Security Scanning
@@ -170,3 +167,13 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pre-commit:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run pre-commit hooks
+        uses: pre-commit/action@v3.0.0
