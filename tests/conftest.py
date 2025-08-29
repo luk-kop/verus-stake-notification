@@ -3,7 +3,7 @@ from psutil import Popen, Process
 import os
 
 import boto3
-from moto import mock_dynamodb2
+from moto import mock_aws
 
 from new_stake_script.check_new_stake import (
     VerusProcess,
@@ -139,11 +139,12 @@ def aws_credentials():
 
 
 @fixture
+# @mock_aws
 def dynamodb(aws_credentials):
     """
     Create mocked DynamoDB service resource.
     """
-    with mock_dynamodb2():
+    with mock_aws():
         yield boto3.resource("dynamodb")
 
 
