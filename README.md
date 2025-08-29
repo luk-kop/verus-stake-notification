@@ -1,7 +1,6 @@
 # Verus stake notification
 
-[![Python 3.11](https://img.shields.io/badge/python-3.8.5-blue.svg)](https://www.python.org/downloads/release/python-377/)
-[![Boto3](https://img.shields.io/badge/Boto3-1.17.78-blue.svg)](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-377/)
 [![Terraform](https://img.shields.io/badge/Terraform-~>1.12.1-blueviolet.svg)](https://www.terraform.io/)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
@@ -40,12 +39,12 @@
 Below instructions will get you a copy of the project running on your local host.
 
 ### Requirements
-Python third party packages:
-* [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-* [python-dotenv](https://pypi.org/project/python-dotenv/)
-* [pytest](https://docs.pytest.org/en/6.2.x/)
-* [psutil](https://pypi.org/project/psutil/)
-* [requests](https://docs.python-requests.org/en/master/)
+- Python 3.11 or higher
+- Python third party packages:
+  * [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+  * [python-dotenv](https://pypi.org/project/python-dotenv/)
+  * [psutil](https://pypi.org/project/psutil/)
+  * [requests](https://docs.python-requests.org/en/master/)
 
 Other prerequisites:
 * The **Verus Coin (VRSC) CLI wallet** running on some Linux distribution. You can find appropriate wallet binaries on Verus Coin (VRSC) project website - [Verus wallet](https://verus.io/wallet/command-wallet).
