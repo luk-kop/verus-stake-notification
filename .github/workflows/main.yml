@@ -6,12 +6,12 @@ on:
     paths-ignore:
       - '**.md'
       - 'images/**'
-  # pull_request:
-  #   branches:
-  #     - main
-  #   paths-ignore:
-  #     - '**.md'
-  #     - 'images/**'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'images/**'
   workflow_dispatch:
 
 env:
@@ -20,6 +20,7 @@ env:
   TF_VERSION: '1.12.1'
   TF_LINT_VERSION: 'latest'
   TF_DOCS_VERSION: 'latest'
+  TF_WORKING_DIR: 'terraform/'
   TRIVY_VERSION: 'v0.65.0'
 
 jobs:
@@ -116,15 +117,15 @@ jobs:
 
       - name: Terraform Format Check
         run: |
-          terraform fmt -check -recursive terraform/
+          terraform fmt -check -recursive ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Init
-        working-directory: terraform/
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform init -backend=false
 
       - name: Terraform Validate
-        working-directory: terraform/
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform validate
 
