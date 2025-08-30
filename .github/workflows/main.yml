@@ -19,6 +19,7 @@ env:
   RUFF_VERSION: '0.12.1'
   TF_VERSION: '1.12.1'
   TF_LINT_VERSION: 'latest'
+  TF_DOCS_VERSION: 'latest'
   TRIVY_VERSION: 'v0.65.0'
 
 jobs:
@@ -199,6 +200,18 @@ jobs:
         with:
           cache: true
           version: ${{ env.TRIVY_VERSION }}
+
+      - name: Setup Terraform docs
+        uses: lablabs/setup-terraform-docs@v1
+        with:
+          terraform_docs_version: v0.9.1
+
+      - name: Setup Terraform docs
+        uses: jaxxstorm/action-install-gh-release@v2
+        with:
+          repo: terraform-docs/terraform-docs
+          # tag: v0.20.0
+          tag: ${{ env.TF_DOCS_VERSION }}
 
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.0
