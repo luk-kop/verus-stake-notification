@@ -6,12 +6,12 @@ on:
     paths-ignore:
       - '**.md'
       - 'images/**'
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - 'images/**'
+  # pull_request:
+  #   branches:
+  #     - main
+  #   paths-ignore:
+  #     - '**.md'
+  #     - 'images/**'
   workflow_dispatch:
 
 env:
@@ -205,7 +205,6 @@ jobs:
         uses: jaxxstorm/action-install-gh-release@v2.1.0
         with:
           repo: terraform-docs/terraform-docs
-          # tag: v0.20.0
           tag: ${{ env.TF_DOCS_VERSION }}
 
       - name: Run pre-commit hooks
