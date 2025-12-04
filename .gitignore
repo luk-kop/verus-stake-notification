@@ -19,6 +19,7 @@ crash.*.log
 *.tar
 *.tar.gz
 backend.hcl
+config.s3.tfbackend
 
 notes*
 txcount*

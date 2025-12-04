@@ -20,9 +20,9 @@ def get_path(name: str, directory: bool = False) -> Optional[PosixPath]:
 
 
 @dataclass
-class TerraformBackendFile:
+class TerraformBackendConfigFile:
     """
-    The class representing backend.hcl file.
+    The class representing Terraform config backend file.
     """
 
     filename: str
@@ -46,13 +46,13 @@ class TerraformBackendFile:
         """
         Verify that value syntax is correct - do not allow value in ${}
         """
-        for key, value in content.items():
+        for _, value in content.items():
             if isinstance(value, str) and value.startswith("${"):
                 return False
         return True
 
     @property
-    def file_content(self) -> dict:
+    def file_content(self) -> Dict:
         """
         Return HCL file content as python dict object.
         """
@@ -83,6 +83,135 @@ class TerraformBackendFile:
             print(f'Error: not valid data format in "{self.filename}" file')
             return False
         return True
+
+
+class TerraformBackendBlock:
+    """
+    The class representing Terraform file containing backend block.
+    """
+
+    def __init__(
+        self,
+        terraform_dir: str = "terraform",
+        backend_block_file: str = "backend.tf",
+        tf_backend_filename: str = None,
+    ) -> None:
+        self.terraform_dir = Path(terraform_dir)
+        self.backend_file = self.terraform_dir / backend_block_file
+        self.tf_backend_filename = tf_backend_filename
+
+    def create_s3_backend_content(self) -> str:
+        """
+        Create S3 backend configuration content as HCL string
+        """
+        return """terraform {
+  backend "s3" {}
+}
+"""
+
+    def setup_backend(self):
+        """
+        Setup backend based on tf_backend_filename existence
+        """
+        current_has_backend = self.backend_file.exists()
+        should_have_backend = self.tf_backend_filename and self._backend_config_exists()
+
+        # Only change backend if configuration differs from current state
+        if should_have_backend and not current_has_backend:
+            return self.setup_s3_backend_from_config()
+        elif not should_have_backend and current_has_backend:
+            return self.setup_local_backend()
+        else:
+            # Backend is already in correct state
+            if should_have_backend:
+                print("✅ S3 backend already configured")
+            else:
+                print("✅ Local backend already configured")
+            return True
+
+    def _backend_config_exists(self) -> bool:
+        """
+        Check if backend configuration file exists
+        """
+        if not self.tf_backend_filename:
+            return False
+        config_path = self.terraform_dir / self.tf_backend_filename
+        return config_path.exists() and config_path.is_file()
+
+    def setup_local_backend(self):
+        """
+        Setup local backend by removing backend.tf
+        """
+        print("🔧 Setting up local backend...")
+
+        if self.backend_file.exists():
+            self.backend_file.unlink()
+            print(f"✅ Removed {self.backend_file}")
+            self._clean_terraform_dir()
+        else:
+            print("✅ No backend.tf file (already using local backend)")
+
+        return True
+
+    def setup_s3_backend_from_config(self):
+        """Setup S3 backend by creating backend.tf from config file"""
+        print("🔧 Setting up S3 backend from config file...")
+
+        backend_content = self.create_s3_backend_content()
+        self.backend_file.write_text(backend_content)
+        print(f"✅ Created {self.backend_file}")
+
+        self._clean_terraform_dir()
+        return True
+
+    def setup_s3_backend(
+        self,
+        bucket: str,
+        key: str = "terraform.tfstate",
+        region: str = "us-east-1",
+        dynamodb_table: Optional[str] = None,
+    ):
+        """Setup S3 backend by creating backend.tf"""
+        print("🔧 Setting up S3 backend...")
+
+        backend_content = self.create_s3_backend_content(
+            bucket, key, region, dynamodb_table
+        )
+
+        self.backend_file.write_text(backend_content)
+        print(f"✅ Created {self.backend_file}")
+
+        self._clean_terraform_dir()
+        return True
+
+    def _clean_terraform_dir(self):
+        """Clean .terraform directory to force reinitialization"""
+        terraform_dir = self.terraform_dir / ".terraform"
+        if terraform_dir.exists():
+            import shutil
+
+            shutil.rmtree(terraform_dir)
+            print("✅ Cleaned .terraform directory")
+
+    def show_current_backend(self):
+        """Display current backend configuration"""
+        if self.backend_file.exists():
+            print(f"📍 Current backend configuration ({self.backend_file}):")
+            print(self.backend_file.read_text())
+        else:
+            print("📍 Current backend: local (no backend.tf file)")
+
+    def validate_terraform_files(self):
+        """
+        Validate that terraform files exist in the directory
+        """
+        tf_files = list(self.terraform_dir.glob("*.tf"))
+        # Exclude backend.tf from this check since we manage it
+        tf_files = [f for f in tf_files if f.name != "backend.tf"]
+
+        if not tf_files:
+            raise ValueError(f"No .tf files found in {self.terraform_dir}")
+        return tf_files
 
 
 @dataclass

@@ -6,7 +6,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from utils import EnvApiFile, TerraformBackendFile, get_path
+from utils import EnvApiFile, TerraformBackendBlock, get_path
 
 
 def store_terraform_output() -> None:
@@ -75,17 +75,51 @@ def destroy_resources_wrapper() -> None:
     EnvApiFile().store()
 
 
+def plan_resources_wrapper(command_params: dict) -> None:
+    """
+    Function run by the parser to plan AWS resources.
+    """
+    # Check whether '.terraform' dir exist - if not initialize Terraform working directory
+    if not get_path(name="terraform/.terraform", directory=True):
+        init_terraform_wrapper()
+    aws_region = command_params["region"]
+    aws_profile = command_params["profile"]
+    # Get SNS Topic subscription email from env var
+    email_to_notify = os.getenv("EMAIL_TO_NOTIFY")
+    wallet_ip = os.getenv("WALLET_PUBLIC_IP")
+    options = [
+        "terraform",
+        "plan",
+        f"-var=region={aws_region}",
+        f"-var=profile={aws_profile}",
+        f"-var=sns_email={email_to_notify}",
+    ]
+    if wallet_ip:
+        options.append(f"-var=wallet_ip={wallet_ip}")
+    # Run 'terraform plan'
+    subprocess.run(args=options)
+
+
 def init_terraform_wrapper() -> None:
     """
     Function run by the parser to initialize Terraform working directory.
     """
-    tf_backend_filename = "backend.hcl"
-    tf_backend = TerraformBackendFile(filename=tf_backend_filename)
-    if not tf_backend.validate_file():
-        sys.exit(1)
-    options = ["terraform", "init", f"-backend-config={tf_backend_filename}"]
-    # Run 'terraform init -backend-config=backend.hcl'
-    print("Initializing Terraform working directory...")
+    tf_backend_filename = "config.s3.tfbackend"
+    backend_handler = TerraformBackendBlock(
+        terraform_dir=".", tf_backend_filename=tf_backend_filename
+    )
+
+    # Setup backend based on config file existence
+    backend_handler.setup_backend()
+
+    # Initialize terraform
+    if backend_handler._backend_config_exists():
+        print("🚀 Initializing Terraform with S3 backend...")
+        options = ["terraform", "init", f"-backend-config={tf_backend_filename}"]
+    else:
+        print("🚀 Initializing Terraform with local backend...")
+        options = ["terraform", "init"]
+
     subprocess.run(args=options)
 
 
@@ -117,10 +151,13 @@ if __name__ == "__main__":
     # Add subparsers
     subparsers = parser_parent.add_subparsers(title="Valid actions", dest="action")
     # Create parser for 'init' command
-    parser_build = subparsers.add_parser(
+    parser_init = subparsers.add_parser(
         name="init", help="Initialize Terraform working directory"
     )
-    parser_build.set_defaults(func=init_terraform_wrapper)
+    parser_init.set_defaults(func=init_terraform_wrapper)
+    # Create parser for 'plan' command
+    parser_plan = subparsers.add_parser(name="plan", help="Plan AWS environment")
+    parser_plan.set_defaults(func=plan_resources_wrapper)
     # Create parser for 'build' command
     parser_build = subparsers.add_parser(name="build", help="Build AWS environment")
     parser_build.set_defaults(func=build_resources_wrapper)
@@ -135,7 +172,7 @@ if __name__ == "__main__":
     # Change dir to 'terraform'
     os.chdir("terraform")
 
-    if args.action == "build":
+    if args.action in ["build", "plan"]:
         func_params = {"region": args.region, "profile": args.profile}
         # Call selected action
         args.func(func_params)

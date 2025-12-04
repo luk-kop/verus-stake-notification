@@ -1,3 +1,6 @@
+# terraform
+
+<!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
@@ -11,9 +14,9 @@
 
 | Name | Version |
 |------|---------|
-| <a name="provider_archive"></a> [archive](#provider\_archive) | ~> 2.7.1 |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | ~> 3.7.2 |
+| <a name="provider_archive"></a> [archive](#provider\_archive) | 2.7.1 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.24.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
 
 ## Modules
 
@@ -86,3 +89,4 @@ No modules.
 | <a name="output_cognito_client_secret"></a> [cognito\_client\_secret](#output\_cognito\_client\_secret) | Cognito client ID |
 | <a name="output_cognito_scopes"></a> [cognito\_scopes](#output\_cognito\_scopes) | Cognito scope ids |
 | <a name="output_cognito_token_url"></a> [cognito\_token\_url](#output\_cognito\_token\_url) | Cognito token URL |
+<!-- END_TF_DOCS -->

@@ -1,10 +1,6 @@
 terraform {
   required_version = "~> 1.12.1"
 
-  backend "s3" {
-    key = "verus-notification/terraform.tfstate"
-  }
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
