@@ -6,13 +6,13 @@ output "api_url" {
 output "cognito_client_id" {
   description = "Cognito client ID"
   sensitive   = true
-  value       = aws_cognito_user_pool_client.verus_cognito_client.id
+  value       = aws_cognito_user_pool_client.this.id
 }
 
 output "cognito_client_secret" {
   description = "Cognito client ID"
   sensitive   = true
-  value       = aws_cognito_user_pool_client.verus_cognito_client.client_secret
+  value       = aws_cognito_user_pool_client.this.client_secret
 }
 
 output "cognito_token_url" {
@@ -21,5 +21,6 @@ output "cognito_token_url" {
 }
 
 output "cognito_scopes" {
-  value = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+  description = "Cognito scope ids"
+  value       = aws_cognito_resource_server.this.scope_identifiers
 }

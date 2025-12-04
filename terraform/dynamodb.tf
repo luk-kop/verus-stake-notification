@@ -4,6 +4,7 @@ resource "aws_dynamodb_table" "verus_stakes_txids_table" {
   read_capacity  = 1
   write_capacity = 1
   hash_key       = "tx_id"
+
   attribute {
     name = "tx_id"
     type = "S"
@@ -16,6 +17,7 @@ resource "aws_dynamodb_table" "verus_stakes_values_table" {
   read_capacity  = 1
   write_capacity = 1
   hash_key       = "ts_id"
+
   attribute {
     name = "ts_id"
     type = "S"

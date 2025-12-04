@@ -1,4 +1,3 @@
-# API Gateway config
 resource "aws_api_gateway_rest_api" "verus_api" {
   name        = "${local.name_prefix}-api-${random_id.name.hex}"
   description = "Invoke Lambda function when a new stake appears in your Verus (VRSC) wallet."
@@ -14,7 +13,7 @@ resource "aws_api_gateway_authorizer" "verus_auth" {
   name          = "Verus-API-Authorizer"
   type          = "COGNITO_USER_POOLS"
   rest_api_id   = aws_api_gateway_rest_api.verus_api.id
-  provider_arns = [aws_cognito_user_pool.verus_cognito_pool.arn]
+  provider_arns = [aws_cognito_user_pool.this.arn]
 }
 
 # API Gateway - GET
@@ -25,7 +24,7 @@ resource "aws_api_gateway_method" "verus_api_get" {
   http_method          = "GET"
   resource_id          = aws_api_gateway_resource.verus_api.id
   rest_api_id          = aws_api_gateway_rest_api.verus_api.id
-  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+  authorization_scopes = aws_cognito_resource_server.this.scope_identifiers
 }
 
 resource "aws_api_gateway_integration" "verus_api_get" {
@@ -77,7 +76,7 @@ resource "aws_api_gateway_method" "verus_api_post" {
     "application/json" = aws_api_gateway_model.verus_api_post_model.name
   }
   request_validator_id = aws_api_gateway_request_validator.verus_api_post_validate_body.id
-  authorization_scopes = aws_cognito_resource_server.verus_cognito_resource_server.scope_identifiers
+  authorization_scopes = aws_cognito_resource_server.this.scope_identifiers
 }
 
 resource "aws_api_gateway_model" "verus_api_post_model" {
