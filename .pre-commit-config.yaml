@@ -11,7 +11,7 @@ repos:
     - id: detect-aws-credentials
     - id: detect-private-key
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.12.12
+  rev: v0.14.8
   hooks:
     # Run the linter.
     - id: ruff-check
@@ -19,7 +19,7 @@ repos:
     # Run the formatter.
     - id: ruff-format
 - repo: https://github.com/antonbabenko/pre-commit-terraform
-  rev: v1.100.0
+  rev: v1.104.0
   hooks:
     - id: terraform_fmt
     - id: terraform_docs
